@@ -13,10 +13,24 @@
       .tab-content {
         margin-top: 20px;
       }
+
+      .logout-btn {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+      }
     </style>
   </head>
   <body>
-    <div class="container mt-5">
+    <div class="container mt-5"> 
+      {% if result %}
+      <a
+        href="{{ url_for('logout') }}"
+        class="btn btn-outline-danger logout-btn"
+      >
+        Logout
+      </a>
+      {% endif %}
       <div class="col-md-6 offset-md-3">
         <div class="card p-4 shadow-sm">
           <h2 class="mb-4">Enter MSISDN to Retrieve Information</h2>
@@ -172,7 +186,7 @@
         name: "Total Usage",
         type: "bar",
         marker: { color: "#007bff" },
-        width: 0.5, 
+        width: 0.5,
       };
 
       const totalLayout = {
