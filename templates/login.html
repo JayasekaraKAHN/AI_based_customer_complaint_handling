@@ -8,60 +8,50 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css"
       rel="stylesheet"
     />
-    <style>
-        body {
-            background-color: #f4f4f4;
-            display: flex;
-            height: 100vh;
-            align-items: center;
-            justify-content: center;
-        }
-        .login-box {
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
-            width: 320px;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login_style.css') }}">
 </head>
 <body>
-    <div class="login-box">
-        <h4 class="text-center mb-4">Admin Login</h4>
-        <form method="POST" action="{{ url_for('login') }}">
-            <div class="mb-3">
-                <label for="username" class="form-label">Username</label>
-                <input
-                    type="text"
-                    class="form-control"
-                    name="username"
-                    id="username"
-                    required
-                    placeholder="admin"
-                />
+    <div class="login-container">
+        <div class="login-box">
+            <h5 class="text-center mb-3 fw-bold">Login</h5>
+            <div class="login-divider mx-auto mb-3"></div>
+            <form method="POST" action="{{ url_for('login') }}">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username:</label>
+                    <input
+                        type="text"
+                        class="form-control"
+                        name="username"
+                        id="username"
+                        required
+                        placeholder="admin"
+                        value="{{ request.form.username if request.form.username }}"
+                    />
+                </div>
+                <div class="mb-4">
+                    <label for="password" class="form-label">Password:</label>
+                    <input
+                        type="password"
+                        class="form-control"
+                        name="password"
+                        id="password"
+                        required
+                        placeholder="admin"
+                    />
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Login</button>
+            </form>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="mt-3 alert alert-danger text-center">
+                {% for category, message in messages %}
+                <div>{{ message }}</div>
+                {% endfor %}
             </div>
-            <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
-                <input
-                    type="password"
-                    class="form-control"
-                    name="password"
-                    id="password"
-                    required
-                    placeholder="admin"
-                />
-            </div>
-            <button type="submit" class="btn btn-primary w-100">Login</button>
-        </form>
-        {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-        <div class="mt-3 alert alert-danger text-center">
-            {% for category, message in messages %}
-            <div>{{ message }}</div>
-            {% endfor %}
+            {% endif %}
+            {% endwith %}
         </div>
-        {% endif %}
-        {% endwith %}
+        <footer class="login-footer">Powered by SLTMobitel</footer>
     </div>
 </body>
 </html>

@@ -1,0 +1,117 @@
+/* Ensure body and HTML take full height */
+html, body {
+    height: 100%;
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Background with overlay */
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    background: url('/static/images/bg_image.jpg') no-repeat center center fixed;
+    background-size: cover;
+    z-index: -2;
+}
+
+body::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    background: rgb(247, 243, 243, 0.5); /* Transparent black overlay */
+    z-index: -1;
+}
+
+/* Container */
+.login-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    position: relative;
+}
+
+/* Login box */
+.login-box {
+    background: rgba(255, 255, 255, 0.96);
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    padding: 40px 30px;
+    width: 360px;
+    max-width: 90%;
+    text-align: center;
+}
+
+/* Heading and divider */
+.login-box h5 {
+    font-weight: 600;
+    font-size: 1.2rem;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.login-divider {
+    width: 60px;
+    height: 4px;
+    background-color: #007bff;
+    border-radius: 2px;
+    margin: 0 auto 25px auto;
+}
+
+/* Labels and inputs */
+.login-box label {
+    font-weight: 500;
+    font-size: 0.95rem;
+    margin-bottom: 5px;
+    color: #333;
+    text-align: left;
+    display: block;
+}
+
+.login-box input.form-control {
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 0.95rem;
+    margin-bottom: 15px;
+}
+
+/* Button */
+.login-box button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px;
+    font-weight: bold;
+    font-size: 1rem;
+    border-radius: 6px;
+    width: 100%;
+    transition: background-color 0.3s ease;
+}
+
+.login-box button:hover {
+    background-color: #0056b3;
+}
+
+/* Flash messages */
+.alert {
+    font-size: 0.9rem;
+    margin-top: 15px;
+}
+
+/* Footer */
+.login-footer {
+    position: absolute;
+    bottom: 20px;
+    font-size: 0.85rem;
+    color: #0d0c0c;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
