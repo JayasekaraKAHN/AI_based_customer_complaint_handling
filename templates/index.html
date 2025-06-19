@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MSISDN Information</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+      .tab-content {
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container mt-5">
+      <div class="col-md-6 offset-md-3">
+        <div class="card p-4 shadow-sm">
+          <h2 class="mb-4">Enter MSISDN to Retrieve Information</h2>
+          <form action="/search" method="POST">
+            <div class="mb-3">
+              <label for="msisdn" class="form-label">MSISDN</label>
+              <input
+                type="text"
+                class="form-control"
+                id="msisdn"
+                name="msisdn"
+                required
+              />
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Search</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    {% if result %}
+    <div class="container-fluid px-4 mt-4">
+      <!-- Navigation Tabs -->
+      <ul class="nav nav-tabs" id="infoTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link active"
+            id="details-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#details"
+            type="button"
+            role="tab"
+            aria-controls="details"
+            aria-selected="true"
+          >
+            Details
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="graphs-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#graphs"
+            type="button"
+            role="tab"
+            aria-controls="graphs"
+            aria-selected="false"
+          >
+            Graphs
+          </button>
+        </li>
+      </ul>
+
+      <!-- Tab Content -->
+      <div class="tab-content" id="infoTabsContent">
+        <!-- Details Tab -->
+        <div
+          class="tab-pane fade show active"
+          id="details"
+          role="tabpanel"
+          aria-labelledby="details-tab"
+        >
+          <div class="card p-4 mt-3">
+            <h3>MSISDN: {{ result['MSISDN'] }}</h3>
+            <p><strong>IMSI:</strong> {{ result['IMSI'] }}</p>
+            <p><strong>SIM Type:</strong> {{ result['SIM Type'] }}</p>
+            <p>
+              <strong>Connection Type:</strong> {{ result['Connection Type'] }}
+            </p>
+            <p><strong>LAC:</strong> {{ result['LAC'] }}</p>
+            <p><strong>SAC:</strong> {{ result['SAC'] }}</p>
+            <p><strong>Site:</strong> {{ result['Sitename'] }}</p>
+            <p><strong>Cellcode:</strong> {{ result['Cellcode'] }}</p>
+            <p>
+              <strong>Location:</strong> Lon {{ result['Lon'] }}, Lat {{
+              result['Lat'] }}
+            </p>
+            <p><strong>Region:</strong> {{ result['Region'] }}</p>
+            <p><strong>District:</strong> {{ result['District'] }}</p>
+            <p><strong>Brand:</strong> {{ result['Brand'] }}</p>
+            <p><strong>Model:</strong> {{ result['Model'] }}</p>
+            <p><strong>OS:</strong> {{ result['OS'] }}</p>
+            <p>
+              <strong>Marketing Name:</strong> {{ result['Marketing Name'] }}
+            </p>
+            <p><strong>Year Released:</strong> {{ result['Year Released'] }}</p>
+            <p><strong>Device Type:</strong> {{ result['Device Type'] }}</p>
+            <p><strong>Technology:</strong> {{ result['Technology'] }}</p>
+            <p><strong>VoLTE:</strong> {{ result['VoLTE'] }}</p>
+          </div>
+        </div>
+
+        <!-- Graphs Tab -->
+        <div
+          class="tab-pane fade"
+          id="graphs"
+          role="tabpanel"
+          aria-labelledby="graphs-tab"
+        >
+          <div class="row mt-3">
+            <!-- Line Chart -->
+            <div class="col-md-6 mb-4">
+              <div class="card border p-3">
+                <div
+                  id="monthlyVolumeChart"
+                  style="width: 100%; height: 400px"
+                ></div>
+              </div>
+            </div>
+
+            <!-- Bar Chart -->
+            <div class="col-md-6 mb-4">
+              <div class="card border p-3">
+                <div
+                  id="totalVolumeChart"
+                  style="width: 100%; height: 400px"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Plotly Script -->
+    <script>
+      const usage = JSON.parse('{{ result["Monthly Usage"] | tojson | safe }}');
+
+      // Line Chart (by network type)
+      const networkTraces = ["2G", "3G", "4G", "5G"].map((net) => ({
+        x: usage.months,
+        y: usage[net],
+        name: net,
+        mode: "lines+markers",
+        type: "scatter",
+      }));
+
+      const networkLayout = {
+        title: "Monthly Data Volume by Network",
+        xaxis: { title: "Month" },
+        yaxis: { title: "Volume (MB)" },
+      };
+
+      Plotly.newPlot("monthlyVolumeChart", networkTraces, networkLayout, {
+        responsive: true,
+      });
+
+      // Bar Chart (total usage)
+      const totalBarTrace = {
+        x: usage.months,
+        y: usage.Total,
+        name: "Total Usage",
+        type: "bar",
+        marker: { color: "#007bff" },
+        width: 0.5, 
+      };
+
+      const totalLayout = {
+        title: "Total Monthly Data Usage",
+        xaxis: { title: "Month" },
+        yaxis: { title: "Total Volume (MB)" },
+      };
+
+      Plotly.newPlot("totalVolumeChart", [totalBarTrace], totalLayout, {
+        responsive: true,
+      });
+    </script>
+
+    {% elif error %}
+    <div class="container mt-4">
+      <div class="alert alert-danger"><strong>Error:</strong> {{ error }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>
