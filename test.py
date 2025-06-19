@@ -136,14 +136,19 @@
 ########################################################
 
 
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, session,flash
 import pandas as pd
 import re
 from dash import Dash, html, dcc
 import plotly.graph_objs as go
+from datetime import timedelta
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
+from werkzeug.serving import run_simple
 #from flask.helpers import get_root_path
 
 app = Flask(__name__)
+app.secret_key = "admin12345"
+app.permanent_session_lifetime = timedelta(minutes = 10)
 
 # File paths
 REFERENCE_FILE = "Reference_Data_Cell_Locations_20250403.csv"
@@ -158,6 +163,34 @@ USAGE_FILES = {
 # Load reference data
 ref_df = pd.read_csv(REFERENCE_FILE)
 tac_df = pd.read_csv(TAC_FILE, low_memory=False)
+
+#admin login
+@app.before_request
+def check_login():
+    session.permanent = True  
+    if not session.get("logged_in"):
+        if request.endpoint not in ['login', 'static']:
+            return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get("username")
+        password = request.form.get("password")
+        if username == "admin" and password == "admin12345":
+           session.permanent = True
+           session["logged_in"] = True
+           return redirect(url_for('home'))
+        else:
+            flash("Invalid credentials, please try again.", "error")
+            return render_template(url_for('login.html'))
+    return render_template('login.html')
+
+
+@app.route('/logout')
+def logout():
+    session.pop("logged_in", None)
+    return redirect(url_for('login'))  
 
 # Load usage data from all months
 def load_usage_data():
@@ -314,9 +347,6 @@ def search():
         return render_template('index.html', error=result["error"])
     return render_template('index.html', result=result)
 
-#Wrap Dash app and expose on /usage-graph
-from werkzeug.middleware.dispatcher import DispatcherMiddleware
-from werkzeug.serving import run_simple
 
 dash_app = Dash(__name__, server=app, url_base_pathname='/usage-graph/')
 
