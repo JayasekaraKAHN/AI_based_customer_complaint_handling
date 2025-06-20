@@ -22,7 +22,7 @@
     </style>
   </head>
   <body>
-    <div class="container mt-5"> 
+    <div class="container mt-5">
       <a
         href="{{ url_for('logout') }}"
         class="btn btn-outline-danger logout-btn"
@@ -149,6 +149,25 @@
                 ></div>
               </div>
             </div>
+            <!-- Voice Usage Chart -->
+            <div class="col-md-6 mb-4">
+              <div class="card border p-3">
+                <div
+                  id="voiceUsageChart"
+                  style="width: 100%; height: 400px"
+                ></div>
+              </div>
+            </div>
+            <!--SMS Usage Chart-->
+            <div class="col-md-6 mb-4">
+              <div class="card border p-3">
+                <div
+                  id="smsUsageChart"
+                  style="width: 100%; height: 400px"
+                ></div>
+              </div>
+            </div>
+            
           </div>
         </div>
       </div>
@@ -194,6 +213,44 @@
       };
 
       Plotly.newPlot("totalVolumeChart", [totalBarTrace], totalLayout, {
+        responsive: true,
+      });
+
+      // Voice Usage Chart
+      const voiceTraces = ["incoming_voice", "outgoing_voice"].map((type) => ({
+        x: usage.months,
+        y: usage[type],
+        name: type === "incoming_voice" ? "Incoming Voice" : "Outgoing Voice",
+        mode: "lines+markers",
+        type: "scatter",
+      }));
+
+      const voiceLayout = {
+        title: "Monthly Voice Usage",
+        xaxis: { title: "Month" },
+        yaxis: { title: "Voice Usage (Minutes)" },
+      };
+
+      Plotly.newPlot("voiceUsageChart", voiceTraces, voiceLayout, {
+        responsive: true,
+      });
+
+      //SMS Usage Chart
+      const smsTraces = ["incoming_sms", "outgoing_sms"].map((type) => ({
+        x: usage.months,
+        y: usage[type],
+        name: type === "incoming_sms" ? "Incoming SMS" : "Outgoing SMS",
+        mode: "lines+markers",
+        type: "scatter",
+      }));
+
+      const smsLayout = {
+        title: "Monthly SMS Usage",
+        xaxis: { title: "Month" },
+        yaxis: { title: "SMS Usage" },
+      };
+
+      Plotly.newPlot("smsUsageChart", smsTraces, smsLayout, {
         responsive: true,
       });
     </script>
