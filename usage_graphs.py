@@ -65,6 +65,7 @@ def create_dash_app(server, latest_result, url_base_pathname='/usage-graph/'):
         return fig
     
 
+
     dash_app.layout = html.Div([
         html.H2("Line Graph - Monthly Usage"),
         dcc.Graph(id='usage-graph', figure=get_usage_figure()),
