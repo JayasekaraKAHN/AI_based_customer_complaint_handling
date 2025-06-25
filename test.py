@@ -23,9 +23,17 @@ USAGE_FILES = {
     "May": "USERTD_05.txt"
 }
 VLRD = pd.read_excel('VLRD_Sample.xlsx')
-USERTD = pd.read_csv('USERTD_04.txt', sep='\t')
 
+def load_usage_data_with_month():
+    df_list = []
+    for month, file in USAGE_FILES.items():
+        df = pd.read_csv(file, sep="\t")
+        df["Month"] = month
+        df.columns = [col.upper() for col in df.columns]
+        df_list.append(df)
+    return pd.concat(df_list, ignore_index=True)
 
+USERTD = load_usage_data_with_month()
 
 
 # Load reference data
@@ -66,25 +74,43 @@ def load_usage_data():
         df_list.append(df)
     return pd.concat(df_list, ignore_index=True)
 
-def get_user_count():
+def get_user_count(month=None):
+    df_list = []
+    for m, file in USAGE_FILES.items():
+        if month and m != month:
+            continue
+        df = pd.read_csv(file, sep="\t")
+        df.columns = [col.upper() for col in df.columns]
+        df["Month"] = m
+        df_list.append(df)
 
+    if not df_list:
+        return pd.DataFrame()
+
+    all_usertd = pd.concat(df_list, ignore_index=True)
+
+    # Normalize column cases
     VLRD.columns = [col.upper() for col in VLRD.columns]
-    USERTD.columns = [col.upper() for col in USERTD.columns]  
+    all_usertd.columns = [col.upper() for col in all_usertd.columns]
 
+    # SQL-style query
     query = """
     SELECT  
         SUBSTR(VLRD.CELL_CODE, 1, 6) AS Site_ID,
         VLRD.DISTRICT, 
-        COUNT(DISTINCT USERTD.MSISDN) AS User_Count 
-    FROM USERTD 
-    JOIN VLRD ON USERTD.MSISDN = VLRD.MSISDN    
+        COUNT(DISTINCT all_usertd.MSISDN) AS User_Count 
+    FROM all_usertd 
+    JOIN VLRD ON all_usertd.MSISDN = VLRD.MSISDN    
     WHERE VLRD.DISTRICT IN ('KG', 'GL', 'MT', 'HM')
     GROUP BY SUBSTR(VLRD.CELL_CODE, 1, 6), VLRD.DISTRICT
     ORDER BY User_Count DESC;
     """
 
-    result_df = psql.sqldf(query, {'USERTD': USERTD, 'VLRD': VLRD})
-    return result_df  
+    result_df = psql.sqldf(query, {'all_usertd': all_usertd, 'VLRD': VLRD})
+    return result_df
+
+
+
 
 usage_df = load_usage_data()
 
@@ -238,13 +264,14 @@ def search():
     msisdn = request.form.get("msisdn")
     result = get_msisdn_data(msisdn)
     if "error" in result:
-        return render_template('home.html', error=result["error"])
-    return render_template('home.html', result=result)
+        return render_template('index.html', error=result["error"])
+    return render_template('index.html', result=result)
 
 @app.route('/user_count')
 def user_count():
+    month = request.args.get('month')
     table_data = get_user_count()
-    return render_template('export_vlr_data.html', table_data=table_data.to_dict(orient='records'))
+    return render_template('export_vlr_data.html', table_data=table_data.to_dict(orient='records'), selected_month=month)
 
 dash_app = create_dash_app(app, latest_result)
 
