@@ -24,6 +24,7 @@ USAGE_FILES = {
 }
 VLRD = pd.read_excel('VLRD_Sample.xlsx')
 
+#load vlr data by month
 def load_usage_data_with_month():
     df_list = []
     for month, file in USAGE_FILES.items():
@@ -89,11 +90,7 @@ def get_user_count(month=None):
 
     all_usertd = pd.concat(df_list, ignore_index=True)
 
-    # Normalize column cases
-    VLRD.columns = [col.upper() for col in VLRD.columns]
-    all_usertd.columns = [col.upper() for col in all_usertd.columns]
-
-    # SQL-style query
+    # SQL-style join to count users per site per district
     query = """
     SELECT  
         SUBSTR(VLRD.CELL_CODE, 1, 6) AS Site_ID,
@@ -108,9 +105,6 @@ def get_user_count(month=None):
 
     result_df = psql.sqldf(query, {'all_usertd': all_usertd, 'VLRD': VLRD})
     return result_df
-
-
-
 
 usage_df = load_usage_data()
 
@@ -270,9 +264,13 @@ def search():
 @app.route('/user_count')
 def user_count():
     month = request.args.get('month')
-    table_data = get_user_count()
-    return render_template('export_vlr_data.html', table_data=table_data.to_dict(orient='records'), selected_month=month)
-
+    table_data = get_user_count(month)
+    return render_template(
+        'export_vlr_data.html',
+        table_data=table_data.to_dict(orient='records'),
+        selected_month=month,
+        months=list(USAGE_FILES.keys())
+    )
 dash_app = create_dash_app(app, latest_result)
 
 application = DispatcherMiddleware(app.wsgi_app, {
