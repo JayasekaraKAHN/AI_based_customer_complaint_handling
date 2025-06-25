@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Admin Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      .logout-btn {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <a
+        href="{{ url_for('logout') }}"
+        class="btn btn-outline-danger logout-btn"
+      >
+        Logout
+      </a>
+    <a href="/index" class="btn btn-primary" id="Fetch_MSISDN_details" role="button"
+      >Fetch MSISDN details</a
+    >
+    <a href="/user_count" class="btn btn-secondary" id="Export_VLR_data" role="button"
+      >Export VLR data</a
+    >
+  </body>
+</html>

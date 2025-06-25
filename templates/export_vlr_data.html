@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Site User Count</title>
+    <style>
+        table {
+            margin: auto;
+            border-collapse: collapse;
+            width: 80%;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px 12px;
+        }
+        th {
+            background-color: #eee;
+        }
+    </style>
+</head>
+<body>
+    <h2 style="text-align:center;">User Count by District and Site ID</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Site ID</th>
+                <th>District</th>
+                <th>User Count</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in table_data %}
+                <tr>
+                    <td>{{ row.Site_ID }}</td>
+                    <td>{{ row.DISTRICT }}</td>
+                    <td>{{ row.User_Count }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
