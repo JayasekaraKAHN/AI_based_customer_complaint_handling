@@ -1,146 +1,10 @@
-# import re
-# import pandas as pd
-
-# # Define the input file names
-# input_file = "All_2025-4-2_1.txt"
-# reference_file = "Reference_Data_Cell_Locations_20250403.csv"
-
-# target_msisdn = "94701755005"  # Change this value for testing
-
-# # Read the reference data
-# ref_df = pd.read_csv(reference_file)
-
-# # Read the data
-# with open(input_file, "r") as file:
-#     lines = file.readlines()
-
-# # Process the data
-# for line in lines:
-#     columns = line.strip().split(";")  # Assuming values are separated by ;
-#     if len(columns) < 5:
-#         continue  # Skip malformed lines
-    
-#     msisdn = columns[1]  # Extract MSISDN column
-#     tac = columns[2] # Extract Device TAC
-#     location = columns[4]  # Extract location column
-    
-#     if msisdn == target_msisdn:
-#         # Extract LAC and SAC
-#         match = re.match(r"(\d+)-(\w+)-([a-fA-F0-9]+)", location)
-#         if match:
-#             lac_hex = match.group(2)  # Second part (hex)
-#             sac_hex = match.group(3)  # Third part (hex)
-            
-#             try:
-#                 lac_dec = int(lac_hex, 16)  # Convert hex to decimal
-#                 sac_dec = int(sac_hex, 16)  # Convert hex to decimal
-                
-#                 # Match with reference data
-#                 matched_row = ref_df[(ref_df['lac'] == lac_dec) & (ref_df['cellid'] == sac_dec)]
-#                 if not matched_row.empty:
-#                     sitename = matched_row.iloc[0]['sitename']
-#                     cellcode = matched_row.iloc[0]['cellcode']
-#                     lon = matched_row.iloc[0]['lon']
-#                     lat = matched_row.iloc[0]['lat']
-#                     region = matched_row.iloc[0]['region']
-#                     district = matched_row.iloc[0]['district']
-                    
-#                     print(f"MSISDN: {msisdn}, LAC: {lac_dec}, SAC: {sac_dec}, "
-#                           f"Sitename: {sitename}, Cellcode: {cellcode}, Lon: {lon}, Lat: {lat}, "
-#                           f"Region: {region}, District: {district}")
-#                 else:
-#                     print(f"MSISDN: {msisdn}, LAC: {lac_dec}, SAC: {sac_dec} - No match found in reference data")
-#             except ValueError:
-#                 print("Invalid hex values for LAC or SAC")
-#         else:
-#             print("Invalid location format")
-
-######################################################################
-
-# import re
-# import pandas as pd
-
-# # Define the input file names
-# input_file = "All_2025-4-2_1.txt"
-# reference_file = "Reference_Data_Cell_Locations_20250403.csv"
-# tac_file = "TACD_20250403.csv"
-
-# target_msisdn = "94701755005"  # Change this value for testing
-
-# # Read the reference data
-# ref_df = pd.read_csv(reference_file)
-# tac_df = pd.read_csv(tac_file,low_memory=False)
-
-# # Read the data
-# with open(input_file, "r") as file:
-#     lines = file.readlines()
-
-# # Process the data
-# for line in lines:
-#     columns = line.strip().split(";")  # Assuming values are separated by ;
-#     if len(columns) < 5:
-#         continue  # Skip malformed lines
-    
-#     msisdn = columns[1]  # Extract MSISDN column
-#     tac = columns[2][:8]  # Extract first 8 digits of TAC
-#     location = columns[4]  # Extract location column
-    
-#     if msisdn == target_msisdn:
-#         # Extract LAC and SAC
-#         match = re.match(r"(\d+)-(\w+)-([a-fA-F0-9]+)", location)
-#         if match:
-#             lac_hex = match.group(2)  # Second part (hex)
-#             sac_hex = match.group(3)  # Third part (hex)
-            
-#             try:
-#                 lac_dec = int(lac_hex, 16)  # Convert hex to decimal
-#                 sac_dec = int(sac_hex, 16)  # Convert hex to decimal
-                
-#                 # Match with reference data
-#                 matched_row = ref_df[(ref_df['lac'] == lac_dec) & (ref_df['cellid'] == sac_dec)]
-#                 if not matched_row.empty:
-#                     sitename = matched_row.iloc[0]['sitename']
-#                     cellcode = matched_row.iloc[0]['cellcode']
-#                     lon = matched_row.iloc[0]['lon']
-#                     lat = matched_row.iloc[0]['lat']
-#                     region = matched_row.iloc[0]['region']
-#                     district = matched_row.iloc[0]['district']
-#                 else:
-#                     sitename = cellcode = lon = lat = region = district = "Not Found"
-                
-#                 # Match with TAC data
-#                 tac_row = tac_df[tac_df['tac'] == int(tac)]
-#                 if not tac_row.empty:
-#                     brand = tac_row.iloc[0]['brand']
-#                     model = tac_row.iloc[0]['model']
-#                     software_os_name = tac_row.iloc[0]['software_os_name']
-#                     marketing_name = tac_row.iloc[0]['marketing_name']
-#                     year_released = tac_row.iloc[0]['year_released']
-#                     device_type = tac_row.iloc[0]['device_type']
-#                     volte = tac_row.iloc[0]['volte']
-#                     technology = tac_row.iloc[0]['technology']
-#                     primary_hardware_type = tac_row.iloc[0]['primary_hardware_type']
-#                 else:
-#                     brand = model = software_os_name = marketing_name = year_released = device_type = volte = technology = primary_hardware_type = "Not Found"
-                
-#                 print(f"MSISDN: {msisdn}, LAC: {lac_dec}, SAC: {sac_dec}, Sitename: {sitename}, Cellcode: {cellcode}, "
-#                       f"Lon: {lon}, Lat: {lat}, Region: {region}, District: {district}, TAC: {tac}, Brand: {brand}, "
-#                       f"Model: {model}, OS: {software_os_name}, Marketing Name: {marketing_name}, Year Released: {year_released}, "
-#                       f"Device Type: {device_type}, VoLTE: {volte}, Technology: {technology}, Primary Hardware Type: {primary_hardware_type}")
-#             except ValueError:
-#                 print("Invalid hex values for LAC or SAC or TAC")
-#         else:
-#             print("Invalid location format")
-
-
-########################################################
-
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import pandas as pd
 import re
 from datetime import timedelta
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.serving import run_simple
+import pandasql as psql
 
 #import from external file usage graphs
 from usage_graphs import create_dash_app  
@@ -158,6 +22,11 @@ USAGE_FILES = {
     "April": "USERTD_04.txt",
     "May": "USERTD_05.txt"
 }
+VLRD = pd.read_excel('VLRD_Sample.xlsx')
+USERTD = pd.read_csv('USERTD_04.txt', sep='\t')
+
+
+
 
 # Load reference data
 ref_df = pd.read_csv(REFERENCE_FILE)
@@ -196,6 +65,26 @@ def load_usage_data():
         df["Month"] = month
         df_list.append(df)
     return pd.concat(df_list, ignore_index=True)
+
+def get_user_count():
+
+    VLRD.columns = [col.upper() for col in VLRD.columns]
+    USERTD.columns = [col.upper() for col in USERTD.columns]  
+
+    query = """
+    SELECT  
+        SUBSTR(VLRD.CELL_CODE, 1, 6) AS Site_ID,
+        VLRD.DISTRICT, 
+        COUNT(DISTINCT USERTD.MSISDN) AS User_Count 
+    FROM USERTD 
+    JOIN VLRD ON USERTD.MSISDN = VLRD.MSISDN    
+    WHERE VLRD.DISTRICT IN ('KG', 'GL', 'MT', 'HM')
+    GROUP BY SUBSTR(VLRD.CELL_CODE, 1, 6), VLRD.DISTRICT
+    ORDER BY User_Count DESC;
+    """
+
+    result_df = psql.sqldf(query, {'USERTD': USERTD, 'VLRD': VLRD})
+    return result_df  
 
 usage_df = load_usage_data()
 
@@ -337,15 +226,25 @@ def get_msisdn_data(msisdn):
 
 @app.route('/')
 def home():
+    return render_template('home.html')
+
+@app.route('/index')
+def index():
     return render_template('index.html')
+
 
 @app.route('/search', methods=['POST'])
 def search():
     msisdn = request.form.get("msisdn")
     result = get_msisdn_data(msisdn)
     if "error" in result:
-        return render_template('index.html', error=result["error"])
-    return render_template('index.html', result=result)
+        return render_template('home.html', error=result["error"])
+    return render_template('home.html', result=result)
+
+@app.route('/user_count')
+def user_count():
+    table_data = get_user_count()
+    return render_template('export_vlr_data.html', table_data=table_data.to_dict(orient='records'))
 
 dash_app = create_dash_app(app, latest_result)
 
