@@ -50,19 +50,26 @@
         <button type="submit">Search</button>
     </form>
 
+    <form action="{{ url_for('download_vlr_data') }}" method="get">
+        <input type="hidden" name="month" value="{{ selected_month }}">
+        <button type="submit" class="btn btn-success">Download CSV</button>
+    </form>
+
+
+
     <table>
         <thead>
             <tr>
-                <th>Site ID</th>
                 <th>District</th>
+                <th>Site ID</th>
                 <th>User Count</th>
             </tr>
         </thead>
         <tbody>
             {% for row in table_data %}
                 <tr>
-                    <td>{{ row.Site_ID }}</td>
                     <td>{{ row.DISTRICT }}</td>
+                    <td>{{ row.Site_ID }}</td>
                     <td>{{ row.User_Count }}</td>
                 </tr>
             {% endfor %}

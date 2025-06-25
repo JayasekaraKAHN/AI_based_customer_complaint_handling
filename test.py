@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
+import io
 import pandas as pd
 import re
 from datetime import timedelta
@@ -47,6 +48,27 @@ def check_login():
     if not session.get("logged_in"):
         if request.endpoint not in ['login', 'static']:
             return redirect(url_for('login'))
+        
+@app.route('/download_vlr_data')
+def download_vlr_data():
+    month = request.args.get('month')
+    df = get_user_count(month)
+
+    if df.empty:
+        return "No data available for the selected month.", 404
+
+    csv_buffer = io.StringIO()
+    df.to_csv(csv_buffer, index=False)
+    csv_buffer.seek(0)
+
+    filename = f"user_count_{month if month else 'all_months'}.csv"
+    return send_file(
+        io.BytesIO(csv_buffer.getvalue().encode()),
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=filename
+    )
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -98,10 +120,10 @@ def get_user_count(month=None):
         COUNT(DISTINCT all_usertd.MSISDN) AS User_Count 
     FROM all_usertd 
     JOIN VLRD ON all_usertd.MSISDN = VLRD.MSISDN    
-    WHERE VLRD.DISTRICT IN ('KG', 'GL', 'MT', 'HM')
     GROUP BY SUBSTR(VLRD.CELL_CODE, 1, 6), VLRD.DISTRICT
     ORDER BY User_Count DESC;
     """
+
 
     result_df = psql.sqldf(query, {'all_usertd': all_usertd, 'VLRD': VLRD})
     return result_df
@@ -271,6 +293,7 @@ def user_count():
         selected_month=month,
         months=list(USAGE_FILES.keys())
     )
+
 dash_app = create_dash_app(app, latest_result)
 
 application = DispatcherMiddleware(app.wsgi_app, {
