@@ -6,19 +6,31 @@
     <meta charset="UTF-8">
     <title>Monthly User Counts</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        .logout-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+    </style>
 </head>
 
 <body class="container mt-4">
+    <a href="{{ url_for('logout') }}" class="btn btn-outline-danger logout-btn">
+        Logout
+    </a>
     <h2 class="mb-4">User Counts by Site and District</h2>
 
-    <form method="POST" action="{{ url_for('user_count_search') }}" class="row g-3 mb-4">
+    <div class="row g-3 mb-4">
         <div class="col-md-4">
-            <label for="month" class="form-label">Month:</label>
-            <select id="month" name="month" class="form-select">
-                {% for m in months %}
-                <option value="{{ m }}" {% if m == selected_month %}selected{% endif %}>{{ m }}</option>
-                {% endfor %}
-            </select>
+            <form method="POST" action="{{ url_for('user_count_search') }}">
+                <label for="month" class="form-label">Month:</label>
+                <select id="month" name="month" class="form-select">
+                    <option value="" {% if not selected_month %}selected{% endif %}>All</option>
+                    {% for m in months %}
+                    <option value="{{ m }}" {% if m==selected_month %}selected{% endif %}>{{ m }}</option>
+                    {% endfor %}
+                </select>
         </div>
 
         <div class="col-md-4">
@@ -26,10 +38,19 @@
             <input type="text" id="district" name="district" value="{{ selected_district or '' }}" class="form-control">
         </div>
 
-        <div class="col-md-4 d-flex align-items-end">
+        <div class="col-md-4 d-flex align-items-end gap-2">
             <button type="submit" class="btn btn-primary">Search</button>
+            </form> <!-- closes search form -->
+
+            <!-- Separate form for download -->
+            <form method="POST" action="{{ url_for('download_user_count') }}">
+                <input type="hidden" name="month" value="{{ selected_month or '' }}">
+                <input type="hidden" name="district" value="{{ selected_district or '' }}">
+                <button type="submit" class="btn btn-success">Download CSV</button>
+            </form>
         </div>
-    </form>
+    </div>
+
 
     {% if table_data %}
     <table class="table table-bordered table-striped">
