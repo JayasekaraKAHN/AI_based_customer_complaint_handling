@@ -1,5 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
-import io
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 import pandas as pd
 import re
 from datetime import timedelta
@@ -25,7 +24,7 @@ USAGE_FILES = {
 }
 VLRD = pd.read_excel('VLRD_Sample.xlsx')
 
-#load vlr data by month
+
 def load_usage_data_with_month():
     df_list = []
     for month, file in USAGE_FILES.items():
@@ -48,27 +47,6 @@ def check_login():
     if not session.get("logged_in"):
         if request.endpoint not in ['login', 'static']:
             return redirect(url_for('login'))
-        
-@app.route('/download_vlr_data')
-def download_vlr_data():
-    month = request.args.get('month')
-    df = get_user_count(month)
-
-    if df.empty:
-        return "No data available for the selected month.", 404
-
-    csv_buffer = io.StringIO()
-    df.to_csv(csv_buffer, index=False)
-    csv_buffer.seek(0)
-
-    filename = f"user_count_{month if month else 'all_months'}.csv"
-    return send_file(
-        io.BytesIO(csv_buffer.getvalue().encode()),
-        mimetype='text/csv',
-        as_attachment=True,
-        download_name=filename
-    )
-
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -97,36 +75,46 @@ def load_usage_data():
         df_list.append(df)
     return pd.concat(df_list, ignore_index=True)
 
-def get_user_count(month=None):
+def get_user_count(month=None, district=None):
     df_list = []
     for m, file in USAGE_FILES.items():
         if month and m != month:
             continue
         df = pd.read_csv(file, sep="\t")
-        df.columns = [col.upper() for col in df.columns]
+        df.columns = [col.strip().upper() for col in df.columns]
         df["Month"] = m
         df_list.append(df)
 
     if not df_list:
         return pd.DataFrame()
 
-    all_usertd = pd.concat(df_list, ignore_index=True)
+    usage_all = pd.concat(df_list, ignore_index=True)
 
-    # SQL-style join to count users per site per district
-    query = """
-    SELECT  
-        SUBSTR(VLRD.CELL_CODE, 1, 6) AS Site_ID,
-        VLRD.DISTRICT, 
-        COUNT(DISTINCT all_usertd.MSISDN) AS User_Count 
-    FROM all_usertd 
-    JOIN VLRD ON all_usertd.MSISDN = VLRD.MSISDN    
-    GROUP BY SUBSTR(VLRD.CELL_CODE, 1, 6), VLRD.DISTRICT
-    ORDER BY User_Count DESC;
-    """
+    if "MSISDN" not in VLRD.columns:
+        return pd.DataFrame()
 
+    # Ensure MSISDN is of same type for merge
+    usage_all["MSISDN"] = usage_all["MSISDN"].astype(str)
+    VLRD["MSISDN"] = VLRD["MSISDN"].astype(str)
 
-    result_df = psql.sqldf(query, {'all_usertd': all_usertd, 'VLRD': VLRD})
+    # Merge usage with VLRD
+    merged_df = pd.merge(usage_all, VLRD, on="MSISDN", how="inner")
+
+    # Extract SITE_ID from first 6 digits of CELL_CODE
+    merged_df["SITE_ID"] = merged_df["CELL_CODE"].astype(str).str[:6]
+
+    if district:
+        merged_df = merged_df[merged_df["DISTRICT"].str.upper() == district.upper()]
+
+    # Group by both DISTRICT and SITE_ID
+    result_df = merged_df.groupby(['DISTRICT', 'SITE_ID'])['MSISDN'].nunique().reset_index()
+    result_df.rename(columns={'MSISDN': 'User_Count'}, inplace=True)
+
+    # Sort results
+    result_df = result_df.sort_values(by='User_Count', ascending=False)
+
     return result_df
+
 
 usage_df = load_usage_data()
 
@@ -286,11 +274,32 @@ def search():
 @app.route('/user_count')
 def user_count():
     month = request.args.get('month')
-    table_data = get_user_count(month)
+    district = request.args.get('district')
+    table_data = get_user_count(month, district)
+
+    if table_data is None or table_data.empty:
+        table_data = pd.DataFrame()  
+
     return render_template(
         'export_vlr_data.html',
         table_data=table_data.to_dict(orient='records'),
         selected_month=month,
+        selected_district=district,
+        months=list(USAGE_FILES.keys())
+    )
+
+
+#District Search
+@app.route('/user_count/search', methods=['POST'])
+def user_count_search():
+    month = request.form.get('month')
+    district = request.form.get('district')
+    table_data = get_user_count(month, district)
+    return render_template(
+        'export_vlr_data.html',
+        table_data=table_data.to_dict(orient='records'),
+        selected_month=month,
+        selected_district=district,
         months=list(USAGE_FILES.keys())
     )
 
