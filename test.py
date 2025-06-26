@@ -1,6 +1,7 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
 import pandas as pd
 import re
+import io
 from datetime import timedelta
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.serving import run_simple
@@ -93,28 +94,18 @@ def get_user_count(month=None, district=None):
     if "MSISDN" not in VLRD.columns:
         return pd.DataFrame()
 
-    # Ensure MSISDN is of same type for merge
     usage_all["MSISDN"] = usage_all["MSISDN"].astype(str)
     VLRD["MSISDN"] = VLRD["MSISDN"].astype(str)
-
-    # Merge usage with VLRD
     merged_df = pd.merge(usage_all, VLRD, on="MSISDN", how="inner")
-
-    # Extract SITE_ID from first 6 digits of CELL_CODE
     merged_df["SITE_ID"] = merged_df["CELL_CODE"].astype(str).str[:6]
 
     if district:
         merged_df = merged_df[merged_df["DISTRICT"].str.upper() == district.upper()]
 
-    # Group by both DISTRICT and SITE_ID
     result_df = merged_df.groupby(['DISTRICT', 'SITE_ID'])['MSISDN'].nunique().reset_index()
     result_df.rename(columns={'MSISDN': 'User_Count'}, inplace=True)
-
-    # Sort results
     result_df = result_df.sort_values(by='User_Count', ascending=False)
-
     return result_df
-
 
 usage_df = load_usage_data()
 
@@ -301,6 +292,28 @@ def user_count_search():
         selected_month=month,
         selected_district=district,
         months=list(USAGE_FILES.keys())
+    )
+
+@app.route('/user_count/download', methods=['POST'])
+def download_user_count():
+    month = request.form.get('month')
+    district = request.form.get('district')
+    df = get_user_count(month, district)
+
+    if df.empty:
+        return "No data available to download", 204
+
+    csv_stream = io.StringIO()
+    df.to_csv(csv_stream, index=False)
+    csv_stream.seek(0)
+
+    filename = f"user_count_{month or 'All'}_{district or 'All'}.csv"
+
+    return send_file(
+        io.BytesIO(csv_stream.getvalue().encode('utf-8')),
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=filename
     )
 
 dash_app = create_dash_app(app, latest_result)
