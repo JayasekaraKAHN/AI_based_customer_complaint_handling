@@ -81,7 +81,7 @@ def get_user_count(month=None, district=None):
     for m, file in USAGE_FILES.items():
         if month and m != month:
             continue
-        df = pd.read_csv(file, sep="\t")
+        df = pd.read_csv(file, sep="\t", dtype={"MSISDN": str})
         df.columns = [col.strip().upper() for col in df.columns]
         df["Month"] = m
         df_list.append(df)
