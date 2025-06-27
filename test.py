@@ -99,13 +99,23 @@ def get_user_count(month=None, district=None):
     merged_df = pd.merge(usage_all, VLRD, on="MSISDN", how="inner")
     merged_df["SITE_ID"] = merged_df["CELL_CODE"].astype(str).str[:6]
 
+    # get district by site name
+    district_upper = district.upper() if district else ""
+    matching_district = None
     if district:
-        merged_df = merged_df[merged_df["DISTRICT"].str.upper() == district.upper()]
+        sitename_match = ref_df[ref_df["sitename"].str.upper() == district_upper]
+        if not sitename_match.empty:
+            matching_district = sitename_match.iloc[0]["district"]
+            district_upper = matching_district.upper()
+
+    if district:
+        merged_df = merged_df[merged_df["DISTRICT"].str.upper() == district_upper]
 
     result_df = merged_df.groupby(['DISTRICT', 'SITE_ID'])['MSISDN'].nunique().reset_index()
     result_df.rename(columns={'MSISDN': 'User_Count'}, inplace=True)
     result_df = result_df.sort_values(by='User_Count', ascending=False)
     return result_df
+
 
 usage_df = load_usage_data()
 
