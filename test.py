@@ -6,6 +6,9 @@ from datetime import timedelta
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.serving import run_simple
 import pandasql as psql
+import folium
+from geopy.geocoders import Nominatim
+import os
 
 #import from external file usage graphs
 from usage_graphs import create_dash_app  
@@ -75,6 +78,118 @@ def load_usage_data():
         df["Month"] = month
         df_list.append(df)
     return pd.concat(df_list, ignore_index=True)
+
+def create_location_map(result_data):
+    try:
+        lat = result_data.get("Lat", "Not Found")
+        lon = result_data.get("Lon", "Not Found")
+        sitename = result_data.get("Sitename", "Not Found")
+        district = result_data.get("District", "Not Found")
+        msisdn = result_data.get("MSISDN", "Not Found")
+
+        default_lat, default_lon = 6.9271, 79.8612  # Default to Colombo if not found
+
+        if lat != "Not Found" and lon != "Not Found":
+            try:
+                lat = float(lat)
+                lon = float(lon)
+                center_lat, center_lon = lat, lon
+                zoom_level = 12
+                found_location = True
+            except (ValueError, TypeError):
+                center_lat, center_lon = default_lat, default_lon
+                zoom_level = 7
+                found_location = False
+        else:
+            # Try geocoding with site name and district
+            geolocator = Nominatim(user_agent="mobitel_usage_analyzer")
+            location_query = f"{sitename}, {district}, Sri Lanka"
+
+            try:
+                location = geolocator.geocode(location_query, timeout=10)
+                if location:
+                    center_lat, center_lon = location.latitude, location.longitude
+                    zoom_level = 12
+                    found_location = True
+                else:
+                    center_lat, center_lon = default_lat, default_lon
+                    zoom_level = 7
+                    found_location = False
+            except:
+                center_lat, center_lon = default_lat, default_lon
+                zoom_level = 7
+                found_location = False
+
+        map_obj = folium.Map(
+            location=[center_lat, center_lon],
+            zoom_start=zoom_level,
+            tiles='OpenStreetMap'
+        )
+
+        popup_content = f"""
+        <div style="width: 200px;">
+            <h5>{msisdn}</h5>
+            <p><strong>Site:</strong> {sitename}</p>
+            <p><strong>District:</strong> {district}</p>
+            <p><strong>Region:</strong> {result_data.get('Region', 'Unknown')}</p>
+            <p><strong>Cell Code:</strong> {result_data.get('Cellcode', 'Unknown')}</p>
+            <p><strong>LAC:</strong> {result_data.get('LAC', 'Unknown')}</p>
+            <p><strong>SAC:</strong> {result_data.get('SAC', 'Unknown')}</p>
+            <p><strong>Coordinates:</strong> {lat}, {lon}</p>
+        </div>
+        """
+
+        if found_location:
+            folium.Marker(
+                location=[center_lat, center_lon],
+                popup=folium.Popup(popup_content, max_width=300),
+                tooltip=f"MSISDN:{msisdn}",
+                icon=folium.Icon(color='red', icon='phone')
+            ).add_to(map_obj)
+        else:
+            folium.Marker(
+                location=[center_lat, center_lon],
+                popup=folium.Popup(popup_content, max_width=300),
+                tooltip=f"MSISDN:{msisdn}",
+                icon=folium.Icon(color='gray', icon='question-sign')
+            ).add_to(map_obj)
+
+        if not ref_df.empty and found_location:
+            try:
+                nearby_sites = ref_df[
+                    (abs(ref_df['lat'] - center_lat) < 0.1) &
+                    (abs(ref_df['lon'] - center_lon) < 0.1)
+                ].head(10)
+
+                for _, site in nearby_sites.iterrows(): 
+                    folium.CircleMarker(
+                        location=[site['lat'], site['lon']], 
+                        radius=5,
+                        popup=f"Site: {site['sitename']}<br>District: {site['district']}",
+                        color='blue',
+                        fill=True,
+                        fill_color='lightblue',
+                    ).add_to(map_obj)
+            except Exception as e:
+                print(f"Error adding nearby sites: {e}")
+                pass
+
+        return map_obj
+
+    except Exception as e:
+        print(f"Error creating map: {e}")
+        map_obj = folium.Map(
+            location=[7.8731, 80.7718],
+            zoom_start=7,
+            tiles='OpenStreetMap'
+        )
+        folium.Marker(
+            location=[7.8731, 80.7718],
+            popup="Error creating map. Please try again later.",
+            icon=folium.Icon(color='red', icon='exclamation-sign')
+        ).add_to(map_obj)
+        return map_obj
+
 
 def get_user_count(month=None, district=None):
     df_list = []
@@ -263,14 +378,58 @@ def home():
 def index():
     return render_template('index.html')
 
+@app.route('/map/<msisdn>')
+def show_map(msisdn):  
+    result = get_msisdn_data(msisdn)
+
+    if "error" in result:
+        map_obj = folium.Map(
+            location=[7.8731, 80.7718],  
+            zoom_start=7,
+            tiles='OpenStreetMap'
+        )
+
+        folium.Marker(
+            location=[7.8731, 80.7718],
+            popup="Error: " + result["error"],
+            icon=folium.Icon(color='red', icon='exclamation-sign')
+        ).add_to(map_obj)
+
+    else:
+        map_obj = create_location_map(result)
+
+    if not os.path.exists('static'):
+        os.makedirs('static')
+    
+    map_path = 'static/temp_map.html'
+    map_obj.save(map_path)
+    
+    return render_template('map_display.html', msisdn=msisdn, result=result)
 
 @app.route('/search', methods=['POST'])
 def search():
     msisdn = request.form.get("msisdn")
     result = get_msisdn_data(msisdn)
+    
     if "error" in result:
         return render_template('index.html', error=result["error"])
-    return render_template('index.html', result=result)
+    
+    # Create map for this MSISDN and save to static directory
+    try:
+        map_obj = create_location_map(result)
+        
+        # Ensure static directory exists
+        if not os.path.exists('static'):
+            os.makedirs('static')
+        
+        map_path = 'static/temp_map.html'
+        map_obj.save(map_path)
+        has_map = True
+    except Exception as e:
+        print(f"Error creating map: {e}")
+        has_map = False
+    
+    return render_template('index.html', result=result, has_map=has_map)
 
 @app.route('/user_count')
 def user_count():
