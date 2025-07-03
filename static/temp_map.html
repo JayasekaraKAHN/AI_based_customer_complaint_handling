@@ -17,7 +17,7 @@
             <meta name="viewport" content="width=device-width,
                 initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
             <style>
-                #map_74ca4fd19c77da8a1d67d51f5fd5e111 {
+                #map_974b4be27d83555bc06283047e607034 {
                     position: relative;
                     width: 100.0%;
                     height: 100.0%;
@@ -54,14 +54,26 @@
 <body>
     
     
-            <div class="folium-map" id="map_74ca4fd19c77da8a1d67d51f5fd5e111" ></div>
+        <div style="position: fixed; 
+                    top: 10px; right: 10px; width: 200px; height: auto; 
+                    background-color: white; border: 2px solid #ccc; z-index: 9999; 
+                    font-size: 12px; padding: 10px; border-radius: 5px;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+        <p style="margin: 5px 0; font-size: 10px; color: #666;">
+            <strong>District:</strong> GL<br>
+            <strong>Region:</strong> GL,HM,MT
+        </p>
+        </div>
+        
+    
+            <div class="folium-map" id="map_974b4be27d83555bc06283047e607034" ></div>
         
 </body>
 <script>
     
     
-            var map_74ca4fd19c77da8a1d67d51f5fd5e111 = L.map(
-                "map_74ca4fd19c77da8a1d67d51f5fd5e111",
+            var map_974b4be27d83555bc06283047e607034 = L.map(
+                "map_974b4be27d83555bc06283047e607034",
                 {
                     center: [6.11889, 80.3108],
                     crs: L.CRS.EPSG3857,
@@ -78,7 +90,7 @@
 
         
     
-            var tile_layer_2cefa5b2ba8e46a52362cac06d8c89e2 = L.tileLayer(
+            var tile_layer_51913e8ef1902e14e0ec5f7c710b4aef = L.tileLayer(
                 "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
                 {
   "minZoom": 0,
@@ -95,47 +107,47 @@
             );
         
     
-            tile_layer_2cefa5b2ba8e46a52362cac06d8c89e2.addTo(map_74ca4fd19c77da8a1d67d51f5fd5e111);
+            tile_layer_51913e8ef1902e14e0ec5f7c710b4aef.addTo(map_974b4be27d83555bc06283047e607034);
         
     
-            var marker_ed3191ca2d0fd72260fb05b9f80b68d0 = L.marker(
+            var marker_94dcb92075a83e385000a25fe7a14aee = L.marker(
                 [6.11889, 80.3108],
                 {
 }
-            ).addTo(map_74ca4fd19c77da8a1d67d51f5fd5e111);
+            ).addTo(map_974b4be27d83555bc06283047e607034);
         
     
-            var icon_b97cb93b4a6120433974f7ae9a6d4644 = L.AwesomeMarkers.icon(
+            var icon_4d271d71bc49f1ff269659de13ed163b = L.AwesomeMarkers.icon(
                 {
   "markerColor": "red",
   "iconColor": "white",
-  "icon": "info-sign",
-  "prefix": "glyphicon",
+  "icon": "user",
+  "prefix": "fa",
   "extraClasses": "fa-rotate-0",
 }
             );
         
     
-        var popup_e057efffa04a2b75288baa18e7437498 = L.popup({
-  "maxWidth": 300,
+        var popup_39ef606bcad082745533aed235e7a707 = L.popup({
+  "maxWidth": 320,
 });
 
         
             
-                var html_24d77600b867ad24c960fc8e86a17b3f = $(`<div id="html_24d77600b867ad24c960fc8e86a17b3f" style="width: 100.0%; height: 100.0%;">         <div style="width: 200px;">             <h5>📱 94714201486</h5>             <p><strong>Site:</strong> Nevungala</p>             <p><strong>District:</strong> GL</p>             <p><strong>Region:</strong> GL,HM,MT</p>             <p><strong>Cell Code:</strong> GLNVG1C</p>             <p><strong>LAC:</strong> 63810</p>             <p><strong>SAC:</strong> 45643</p>             <p><strong>Coordinates:</strong> 6.11889, 80.3108</p>         </div>         </div>`)[0];
-                popup_e057efffa04a2b75288baa18e7437498.setContent(html_24d77600b867ad24c960fc8e86a17b3f);
+                var html_0660deabe1ce944d9811b6b90b53c49d = $(`<div id="html_0660deabe1ce944d9811b6b90b53c49d" style="width: 100.0%; height: 100.0%;">         <div style="width: 280px; font-family: Arial, sans-serif;">             <h5 style="color: #2196F3; background: #E3F2FD; padding: 8px; margin: -5px -5px 10px -5px; border-radius: 4px;">                 📱 User Location             </h5>             <table style="width: 100%; font-size: 12px;">                 <tr><td><strong>MSISDN:</strong></td><td>94714201486</td></tr>                 <tr><td><strong>Site:</strong></td><td>Nevungala</td></tr>                 <tr><td><strong>District:</strong></td><td>GL</td></tr>                 <tr><td><strong>Region:</strong></td><td>GL,HM,MT</td></tr>                 <tr><td><strong>Cell Code:</strong></td><td>GLNVG1C</td></tr>                 <tr><td><strong>LAC:</strong></td><td>63810</td></tr>                 <tr><td><strong>SAC:</strong></td><td>45643</td></tr>                 <tr><td><strong>Coordinates:</strong></td><td>6.11889, 80.3108</td></tr>             </table>         </div>         </div>`)[0];
+                popup_39ef606bcad082745533aed235e7a707.setContent(html_0660deabe1ce944d9811b6b90b53c49d);
             
         
 
-        marker_ed3191ca2d0fd72260fb05b9f80b68d0.bindPopup(popup_e057efffa04a2b75288baa18e7437498)
+        marker_94dcb92075a83e385000a25fe7a14aee.bindPopup(popup_39ef606bcad082745533aed235e7a707)
         ;
 
         
     
     
-            marker_ed3191ca2d0fd72260fb05b9f80b68d0.bindTooltip(
+            marker_94dcb92075a83e385000a25fe7a14aee.bindTooltip(
                 `<div>
-                     MSISDN:94714201486
+                     👤 User: 94714201486 | GL
                  </div>`,
                 {
   "sticky": true,
@@ -143,7 +155,7 @@
             );
         
     
-                marker_ed3191ca2d0fd72260fb05b9f80b68d0.setIcon(icon_b97cb93b4a6120433974f7ae9a6d4644);
+                marker_94dcb92075a83e385000a25fe7a14aee.setIcon(icon_4d271d71bc49f1ff269659de13ed163b);
             
 </script>
 </html>
