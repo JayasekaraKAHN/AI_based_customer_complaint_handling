@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from datetime import timedelta
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.serving import run_simple
+from usage_graphs import create_dash_app 
 import pandas as pd
 import re
 import io
@@ -9,16 +10,12 @@ import os
 import folium
 import calendar
 
-#import from external file usage graphs
-from usage_graphs import create_dash_app  
-
 def auto_detect_usage_files(data_directory="."):
     """
     Automatically detect available USERTD files and create month mapping
     """
     usage_files = {}
     
-    # Check for files in pattern USERTD_XX.txt
     for month_num in range(1, 13):
         filename = f"USERTD_{month_num:02d}.txt"
         filepath = os.path.join(data_directory, filename)
@@ -37,9 +34,17 @@ app.permanent_session_lifetime = timedelta(minutes=10)
 REFERENCE_FILE = "Reference_Data_Cell_Locations_20250403.csv"
 TAC_FILE = "TACD_UPDATED.csv"
 INPUT_FILE = "All_2025-4-2_3.txt"
-USAGE_FILES = {calendar.month_name[i]: auto_detect_usage_files()}
+USAGE_FILES = auto_detect_usage_files()
 
-VLRD = pd.read_excel('VLRD_Sample.xlsx')
+# Load VLRD data and ensure proper data types
+try:
+    VLRD = pd.read_excel('VLRD_Sample.xlsx')
+    VLRD['MSISDN'] = pd.to_numeric(VLRD['MSISDN'], errors='coerce')
+    VLRD = VLRD.dropna(subset=['MSISDN'])  
+    print(f"Loaded VLRD data with {len(VLRD)} records")
+except Exception as e:
+    print(f"Error loading VLRD data: {e}")
+    VLRD = pd.DataFrame() 
 
 
 def load_usage_data_with_month():
@@ -207,7 +212,7 @@ def create_location_map(result_data):
             popup=folium.Popup(
                 f"""
                 <div style="width: 200px;">
-                    <h6 style="color: #F44336;">❌ Map Error</h6>
+                    <h6 style="color: #F44336;">Map Error</h6>
                     <p>Unable to create location map</p>
                     <p><strong>MSISDN:</strong> {result_data.get('MSISDN', 'Unknown')}</p>
                     <p><strong>Error:</strong> {str(e)[:50]}...</p>
@@ -302,6 +307,7 @@ def get_msisdn_data(msisdn):
         msisdn_entry = columns[1]
         tac = columns[2][:8]
         location = columns[4]
+        imei = columns[2]  
 
         if msisdn_entry == msisdn:
             sitename = cellcode = lon = lat = region = district = "Not Found"
@@ -381,9 +387,51 @@ def get_msisdn_data(msisdn):
                                  int(grouped.at[month, 'volume_5g_mb']))
                     monthly_usage["Total"].append(total)
 
+            # Get common cell locations from VLRD data
+            common_cells = []
+            try:
+                if not VLRD.empty:
+                    vlrd_matches = VLRD[VLRD["MSISDN"] == int(msisdn)]
+                    
+                    if not vlrd_matches.empty:
+                        for _, row in vlrd_matches.iterrows():
+                            cell_data = {
+                                'CELL_CODE': row.get('CELL_CODE', 'Unknown'),
+                                'SITE_NAME': row.get('SITE_NAME', 'Unknown'),
+                                'DISTRICT': row.get('DISTRICT', 'Unknown'),
+                                'LAC': row.get('LAC', 'Unknown'),
+                                'CELL': row.get('CELL', 'Unknown'),
+                                'LON': 'Not Found',
+                                'LAT': 'Not Found'
+                            }
+                            
+                            # Try to get coordinates from reference data
+                            if cell_data['CELL_CODE'] != 'Unknown':
+                                ref_match = ref_df[ref_df['cellcode'] == cell_data['CELL_CODE']]
+                                if not ref_match.empty:
+                                    cell_data['LON'] = ref_match.iloc[0]['lon']
+                                    cell_data['LAT'] = ref_match.iloc[0]['lat']
+                            
+                            common_cells.append(cell_data)
+                        
+                        # Remove duplicates
+                        seen = set()
+                        unique_cells = []
+                        for cell in common_cells:
+                            cell_key = cell['CELL_CODE']
+                            if cell_key not in seen:
+                                seen.add(cell_key)
+                                unique_cells.append(cell)
+                        common_cells = unique_cells
+                        
+            except Exception as e:
+                print(f"Error processing VLRD data: {e}")
+                common_cells = []
+
             result = {
                 "MSISDN": msisdn,
                 "IMSI": imsi,
+                "IMEI": imei,
                 "SIM Type": sim_type,
                 "Connection Type": connection_type,
                 "LAC": lac_dec,
@@ -404,7 +452,8 @@ def get_msisdn_data(msisdn):
                 "VoLTE": volte,
                 "Technology": technology,
                 "Primary Hardware Type": primary_hardware_type,
-                "Monthly Usage": monthly_usage
+                "Monthly Usage": monthly_usage,
+                "Common Cell Locations": common_cells
             }
 
             latest_result = result
@@ -472,7 +521,7 @@ def search():
     
     return render_template('index.html', result=result, has_map=has_map)
 
-#uer count by site
+#user count by site
 @app.route('/user_count')
 def user_count():
     month = request.args.get('month')
