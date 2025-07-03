@@ -1,17 +1,33 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
-import pandas as pd
-import re
-import io
 from datetime import timedelta
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.serving import run_simple
-import pandasql as psql
-import folium
-from geopy.geocoders import Nominatim
+import pandas as pd
+import re
+import io
 import os
+import folium
+import calendar
 
 #import from external file usage graphs
 from usage_graphs import create_dash_app  
+
+def auto_detect_usage_files(data_directory="."):
+    """
+    Automatically detect available USERTD files and create month mapping
+    """
+    usage_files = {}
+    
+    # Check for files in pattern USERTD_XX.txt
+    for month_num in range(1, 13):
+        filename = f"USERTD_{month_num:02d}.txt"
+        filepath = os.path.join(data_directory, filename)
+        
+        if os.path.exists(filepath):
+            month_name = calendar.month_name[month_num]
+            usage_files[month_name] = filename
+            
+    return usage_files
 
 app = Flask(__name__)
 app.secret_key = "admin12345"
@@ -21,11 +37,8 @@ app.permanent_session_lifetime = timedelta(minutes=10)
 REFERENCE_FILE = "Reference_Data_Cell_Locations_20250403.csv"
 TAC_FILE = "TACD_UPDATED.csv"
 INPUT_FILE = "All_2025-4-2_3.txt"
-USAGE_FILES = {
-    "March": "USERTD_03.txt",
-    "April": "USERTD_04.txt",
-    "May": "USERTD_05.txt"
-}
+USAGE_FILES = {calendar.month_name[i]: auto_detect_usage_files()}
+
 VLRD = pd.read_excel('VLRD_Sample.xlsx')
 
 
@@ -52,6 +65,7 @@ def check_login():
         if request.endpoint not in ['login', 'static']:
             return redirect(url_for('login'))
 
+#login
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -66,6 +80,7 @@ def login():
             return render_template('login.html')
     return render_template('login.html')
 
+#logout
 @app.route('/logout')
 def logout():
     session.pop("logged_in", None)
@@ -79,17 +94,19 @@ def load_usage_data():
         df_list.append(df)
     return pd.concat(df_list, ignore_index=True)
 
+#display user location on map
 def create_location_map(result_data):
+    """Create a folium map showing the location of the searched MSISDN - FOLIUM ONLY"""
     try:
-        lat = result_data.get("Lat", "Not Found")
-        lon = result_data.get("Lon", "Not Found")
-        sitename = result_data.get("Sitename", "Not Found")
-        district = result_data.get("District", "Not Found")
-        msisdn = result_data.get("MSISDN", "Not Found")
-
-        default_lat, default_lon = 6.9271, 79.8612  # Default to Colombo if not found
-
-        if lat != "Not Found" and lon != "Not Found":
+        lat = result_data.get('Lat', 'Not Found')
+        lon = result_data.get('Lon', 'Not Found')
+        sitename = result_data.get('Sitename', 'Unknown Site')
+        district = result_data.get('District', 'Unknown District')
+        msisdn = result_data.get('MSISDN', 'Unknown')
+        
+        default_lat, default_lon = 7.8731, 80.7718 # Default to Colombo
+        
+        if lat != 'Not Found' and lon != 'Not Found':
             try:
                 lat = float(lat)
                 lon = float(lon)
@@ -101,79 +118,106 @@ def create_location_map(result_data):
                 zoom_level = 7
                 found_location = False
         else:
-            # Try geocoding with site name and district
-            geolocator = Nominatim(user_agent="mobitel_usage_analyzer")
-            location_query = f"{sitename}, {district}, Sri Lanka"
-
-            try:
-                location = geolocator.geocode(location_query, timeout=10)
-                if location:
-                    center_lat, center_lon = location.latitude, location.longitude
-                    zoom_level = 12
-                    found_location = True
-                else:
-                    center_lat, center_lon = default_lat, default_lon
-                    zoom_level = 7
-                    found_location = False
-            except:
-                center_lat, center_lon = default_lat, default_lon
-                zoom_level = 7
-                found_location = False
-
+            center_lat, center_lon = default_lat, default_lon
+            zoom_level = 7
+            found_location = False
+        
         map_obj = folium.Map(
             location=[center_lat, center_lon],
             zoom_start=zoom_level,
             tiles='OpenStreetMap'
         )
-
+        
         popup_content = f"""
-        <div style="width: 200px;">
-            <h5>{msisdn}</h5>
-            <p><strong>Site:</strong> {sitename}</p>
-            <p><strong>District:</strong> {district}</p>
-            <p><strong>Region:</strong> {result_data.get('Region', 'Unknown')}</p>
-            <p><strong>Cell Code:</strong> {result_data.get('Cellcode', 'Unknown')}</p>
-            <p><strong>LAC:</strong> {result_data.get('LAC', 'Unknown')}</p>
-            <p><strong>SAC:</strong> {result_data.get('SAC', 'Unknown')}</p>
-            <p><strong>Coordinates:</strong> {lat}, {lon}</p>
+        <div style="width: 280px; font-family: Arial, sans-serif;">
+            <h5 style="color: #2196F3; background: #E3F2FD; padding: 8px; margin: -5px -5px 10px -5px; border-radius: 4px;">
+                📱 User Location
+            </h5>
+            <table style="width: 100%; font-size: 12px;">
+                <tr><td><strong>MSISDN:</strong></td><td>{msisdn}</td></tr>
+                <tr><td><strong>Site:</strong></td><td>{sitename}</td></tr>
+                <tr><td><strong>District:</strong></td><td>{district}</td></tr>
+                <tr><td><strong>Region:</strong></td><td>{result_data.get('Region', 'Unknown')}</td></tr>
+                <tr><td><strong>Cell Code:</strong></td><td>{result_data.get('Cellcode', 'Unknown')}</td></tr>
+                <tr><td><strong>LAC:</strong></td><td>{result_data.get('LAC', 'Unknown')}</td></tr>
+                <tr><td><strong>SAC:</strong></td><td>{result_data.get('SAC', 'Unknown')}</td></tr>
+                <tr><td><strong>Coordinates:</strong></td><td>{lat}, {lon}</td></tr>
+            </table>
         </div>
         """
-
+        
         if found_location:
             folium.Marker(
                 location=[center_lat, center_lon],
-                popup=folium.Popup(popup_content, max_width=300),
-                tooltip=f"MSISDN:{msisdn}",
-                icon=folium.Icon(color='red', icon='phone')
+                popup=folium.Popup(popup_content, max_width=320),
+                tooltip=f"👤 User: {msisdn} | {district}",
+                icon=folium.Icon(
+                    color='red', 
+                    icon='user', 
+                    prefix='fa'
+                )
             ).add_to(map_obj)
+            
         else:
+            # Add default marker for Sri Lanka
             folium.Marker(
                 location=[center_lat, center_lon],
-                popup=folium.Popup(popup_content, max_width=300),
-                tooltip=f"MSISDN:{msisdn}",
-                icon=folium.Icon(color='gray', icon='question-sign')
+                popup=folium.Popup(
+                    """
+                    <div style="width: 200px;">
+                        <h6 style="color: #FF5722;">⚠️ Location Not Found</h6>
+                        <p>Showing default Sri Lanka location</p>
+                        <p><strong>MSISDN:</strong> {}</p>
+                        <p><strong>Coordinates:</strong> Not available</p>
+                    </div>
+                    """.format(msisdn), 
+                    max_width=220
+                ),
+                tooltip="Location not available",
+                icon=folium.Icon(color='gray', icon='question-circle', prefix='fa')
             ).add_to(map_obj)
-
-        if not ref_df.empty and found_location:
-            try:
-                nearby_sites = ref_df[
-                    (abs(ref_df['lat'] - center_lat) < 0.1) &
-                    (abs(ref_df['lon'] - center_lon) < 0.1)
-                ].head(10)
-
-                for _, site in nearby_sites.iterrows(): 
-                    folium.CircleMarker(
-                        location=[site['lat'], site['lon']], 
-                        radius=5,
-                        popup=f"Site: {site['sitename']}<br>District: {site['district']}",
-                        color='blue',
-                        fill=True,
-                        fill_color='lightblue',
-                    ).add_to(map_obj)
-            except Exception as e:
-                print(f"Error adding nearby sites: {e}")
-                pass
-
+        
+        # Add a simple legend
+        legend_html = f"""
+        <div style="position: fixed; 
+                    top: 10px; right: 10px; width: 200px; height: auto; 
+                    background-color: white; border: 2px solid #ccc; z-index: 9999; 
+                    font-size: 12px; padding: 10px; border-radius: 5px;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+        <p style="margin: 5px 0; font-size: 10px; color: #666;">
+            <strong>District:</strong> {district}<br>
+            <strong>Region:</strong> {result_data.get('Region', 'Unknown')}
+        </p>
+        </div>
+        """
+        map_obj.get_root().html.add_child(folium.Element(legend_html))
+        
+        return map_obj
+        
+    except Exception as e:
+        print(f"Error creating map: {e}")
+        map_obj = folium.Map(
+            location=[7.8731, 80.7718],
+            zoom_start=7,
+            tiles='OpenStreetMap'
+        )
+        
+        folium.Marker(
+            location=[7.8731, 80.7718],
+            popup=folium.Popup(
+                f"""
+                <div style="width: 200px;">
+                    <h6 style="color: #F44336;">❌ Map Error</h6>
+                    <p>Unable to create location map</p>
+                    <p><strong>MSISDN:</strong> {result_data.get('MSISDN', 'Unknown')}</p>
+                    <p><strong>Error:</strong> {str(e)[:50]}...</p>
+                </div>
+                """, 
+                max_width=220
+            ),
+            icon=folium.Icon(color='red', icon='exclamation-triangle', prefix='fa')
+        ).add_to(map_obj)
+        
         return map_obj
 
     except Exception as e:
@@ -190,7 +234,7 @@ def create_location_map(result_data):
         ).add_to(map_obj)
         return map_obj
 
-
+#user count by site
 def get_user_count(month=None, district=None):
     df_list = []
     for m, file in USAGE_FILES.items():
@@ -214,8 +258,7 @@ def get_user_count(month=None, district=None):
     merged_df = pd.merge(usage_all, VLRD, on="MSISDN", how="inner")
     merged_df["SITE_ID"] = merged_df["CELL_CODE"].astype(str).str[:6]
 
-    # get district by site name
-    district_upper = district.upper() if district else ""
+    district_upper = district.upper() if district else ""       # get district by site name
     matching_district = None
     if district:
         sitename_match = ref_df[ref_df["sitename"].str.upper() == district_upper]
@@ -230,7 +273,6 @@ def get_user_count(month=None, district=None):
     result_df.rename(columns={'MSISDN': 'User_Count'}, inplace=True)
     result_df = result_df.sort_values(by='User_Count', ascending=False)
     return result_df
-
 
 usage_df = load_usage_data()
 
@@ -406,6 +448,7 @@ def show_map(msisdn):
     
     return render_template('map_display.html', msisdn=msisdn, result=result)
 
+#search msisdn
 @app.route('/search', methods=['POST'])
 def search():
     msisdn = request.form.get("msisdn")
@@ -414,11 +457,9 @@ def search():
     if "error" in result:
         return render_template('index.html', error=result["error"])
     
-    # Create map for this MSISDN and save to static directory
     try:
         map_obj = create_location_map(result)
         
-        # Ensure static directory exists
         if not os.path.exists('static'):
             os.makedirs('static')
         
@@ -431,6 +472,7 @@ def search():
     
     return render_template('index.html', result=result, has_map=has_map)
 
+#uer count by site
 @app.route('/user_count')
 def user_count():
     month = request.args.get('month')
@@ -463,6 +505,7 @@ def user_count_search():
         months=list(USAGE_FILES.keys())
     )
 
+#download csv
 @app.route('/user_count/download', methods=['POST'])
 def download_user_count():
     month = request.form.get('month')

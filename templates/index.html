@@ -12,6 +12,7 @@
     <style>
       .tab-content {
         margin-top: 20px;
+        height: 200px;
       }
       .logout-btn {
         position: absolute;
@@ -105,7 +106,6 @@
 
       <!-- Tab Content -->
       <div class="tab-content" id="infoTabsContent">
-        <!-- EXISTING Details Tab - UNCHANGED -->
         <div
           class="tab-pane fade show active"
           id="details"
@@ -135,34 +135,30 @@
           </div>
         </div>
 
-        <!-- NEW Location Map Tab - ADDED -->
+        <!-- Location Map Tab Content - UPDATED -->
         <div
           class="tab-pane fade"
           id="location"
           role="tabpanel"
           aria-labelledby="location-tab"
         >
-          <div class="card p-4 mt-3">
-            <h4>Location Map</h4>
-            <div class="alert alert-info">
-              <strong>Location Details:</strong> {{ result.Sitename }} - {{ result.District }}, {{ result.Region }}, {{ result['Lon'] }}, {{ result['Lat'] }}</div>
-            
+          <div class="card p-4 mt-3">            
             <div class="map-preview mb-3">
               {% if has_map %}
               <iframe src="{{ url_for('static', filename='temp_map.html') }}" width="100%" height="100%" frameborder="0"></iframe>
               {% else %}
               <div class="d-flex align-items-center justify-content-center h-100 bg-light">
                 <div class="text-center">
-                  <p class="mb-2">Map preview not available</p>
-                  <small class="text-muted">Click "Open Full Map" to view location</small>
+                  <p class="mb-2">Other regions map preview not available</p>
+                  <small class="text-muted">Click "View Other Regions Map" to explore</small>
                 </div>
               </div>
               {% endif %}
             </div>
             
             <div class="d-flex gap-2 flex-wrap">
-              <a href="{{ url_for('show_map', msisdn=result.MSISDN) }}" class="btn btn-primary" target="_blank">
-                🗺️ Open Full Map
+              <a href="{{ url_for('show_map', msisdn=result.MSISDN) }}" class="btn btn-success" target="_blank">
+                View Full Map
               </a>
             </div>
           </div>
@@ -217,7 +213,6 @@
       </div>
     </div>
 
-    <!-- EXISTING Plotly Script - UNCHANGED -->
     <script>
       const usage = JSON.parse('{{ result["Monthly Usage"] | tojson | safe }}');
 
