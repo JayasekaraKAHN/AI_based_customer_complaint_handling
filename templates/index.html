@@ -58,6 +58,7 @@
           Details
         </button>
       </li>
+      <!-- NEW MAP TAB - ADDED -->
       <li class="nav-item" role="presentation">
         <button class="nav-link" id="location-tab" data-bs-toggle="tab" data-bs-target="#location" type="button"
           role="tab" aria-controls="location" aria-selected="false">
@@ -161,7 +162,7 @@
             {% if result["Common Cell Locations"] %}
             {% for loc in result["Common Cell Locations"] %}
             <tr>
-              <td>Common Cell Locations</td>
+              <td>Common Cell Locations (Recent Activity)</td>
             </tr>
             <tr>
               <td><strong>Cell Code</strong></td>
