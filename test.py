@@ -101,7 +101,6 @@ def load_usage_data():
 
 #display user location on map
 def create_location_map(result_data):
-    """Create a folium map showing the location of the searched MSISDN - FOLIUM ONLY"""
     try:
         lat = result_data.get('Lat', 'Not Found')
         lon = result_data.get('Lon', 'Not Found')
@@ -164,13 +163,12 @@ def create_location_map(result_data):
             ).add_to(map_obj)
             
         else:
-            # Add default marker for Sri Lanka
             folium.Marker(
                 location=[center_lat, center_lon],
                 popup=folium.Popup(
                     """
                     <div style="width: 200px;">
-                        <h6 style="color: #FF5722;">⚠️ Location Not Found</h6>
+                        <h6 style="color: #FF5722;">Location Not Found</h6>
                         <p>Showing default Sri Lanka location</p>
                         <p><strong>MSISDN:</strong> {}</p>
                         <p><strong>Coordinates:</strong> Not available</p>
@@ -318,6 +316,7 @@ def get_msisdn_data(msisdn):
                 if imsi_digit in SIM_TYPE_MAPPING:
                     sim_type, connection_type = SIM_TYPE_MAPPING[imsi_digit]
 
+            # Enhanced location lookup with multiple matching strategies
             lac_dec = sac_dec = "Not Found"
             if location.strip():
                 match = re.match(r"(\d+)-(\w+)-([a-fA-F0-9]+)", location)
@@ -325,17 +324,44 @@ def get_msisdn_data(msisdn):
                     try:
                         lac_dec = int(match.group(2), 16)
                         sac_dec = int(match.group(3), 16)
+                        
+                        # Primary lookup: LAC and Cell ID
                         matched_row = ref_df[(ref_df['lac'] == lac_dec) & (ref_df['cellid'] == sac_dec)]
+                        
                         if not matched_row.empty:
                             row = matched_row.iloc[0]
                             sitename = row['sitename']
                             cellcode = row['cellcode']
-                            lon = row['lon']
-                            lat = row['lat']
+                            lon = float(row['lon'])
+                            lat = float(row['lat'])
                             region = row['region']
                             district = row['district']
+                            
+                            # Additional reference data
+                            technology_type = row.get('type', 'Unknown')
+                            
+                            print(f"Found location: {sitename} ({district}, {region}) - {technology_type}")
+                            print(f"Coordinates: {lat}, {lon}")
+                        else:
+                            alt_match = ref_df[ref_df['lac'] == lac_dec]
+                            if not alt_match.empty:
+                                # Use closest match by cell ID
+                                closest_match = alt_match.iloc[0]
+                                sitename = f"{closest_match['sitename']} (Approximate)"
+                                cellcode = closest_match['cellcode']
+                                lon = float(closest_match['lon'])
+                                lat = float(closest_match['lat'])
+                                region = closest_match['region']
+                                district = closest_match['district']
+                                print(f"Using approximate location: {sitename}")
+                            else:
+                                print(f"No reference data found for LAC: {lac_dec}, Cell: {sac_dec}")
+                                
                     except ValueError:
                         return {"error": "Invalid hex values for LAC or SAC"}
+                    except Exception as e:
+                        print(f"Error processing location data: {e}")
+                        return {"error": f"Location processing error: {str(e)}"}
 
             brand = model = software_os_name = marketing_name = year_released = device_type = volte = technology = primary_hardware_type = "Not Found"
             if tac.isdigit():
@@ -405,7 +431,6 @@ def get_msisdn_data(msisdn):
                                 'LAT': 'Not Found'
                             }
                             
-                            # Try to get coordinates from reference data
                             if cell_data['CELL_CODE'] != 'Unknown':
                                 ref_match = ref_df[ref_df['cellcode'] == cell_data['CELL_CODE']]
                                 if not ref_match.empty:
@@ -413,16 +438,6 @@ def get_msisdn_data(msisdn):
                                     cell_data['LAT'] = ref_match.iloc[0]['lat']
                             
                             common_cells.append(cell_data)
-                        
-                        # Remove duplicates
-                        seen = set()
-                        unique_cells = []
-                        for cell in common_cells:
-                            cell_key = cell['CELL_CODE']
-                            if cell_key not in seen:
-                                seen.add(cell_key)
-                                unique_cells.append(cell)
-                        common_cells = unique_cells
                         
             except Exception as e:
                 print(f"Error processing VLRD data: {e}")
