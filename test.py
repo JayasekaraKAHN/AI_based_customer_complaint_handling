@@ -11,18 +11,21 @@ import folium
 import calendar
 
 def auto_detect_usage_files(data_directory="."):
-    """
-    Automatically detect available USERTD files and create month mapping
-    """
-    usage_files = {}
+    usage_files = {}    
+    try:
+        all_files = os.listdir(data_directory)
+    except OSError:
+        return usage_files
     
-    for month_num in range(1, 13):
-        filename = f"USERTD_{month_num:02d}.txt"
-        filepath = os.path.join(data_directory, filename)
-        
-        if os.path.exists(filepath):
-            month_name = calendar.month_name[month_num]
-            usage_files[month_name] = filename
+    for filename in all_files:
+        match = re.match(r"USERTD_(\d{4})_(\d{2})\.txt", filename)
+        if match:
+            year = int(match.group(1))
+            month = int(match.group(2))
+            month_name = calendar.month_name[month]
+            
+            if month_name not in usage_files or year > int(usage_files[month_name].split('_')[1]):
+                usage_files[month_name] = filename
             
     return usage_files
 
@@ -34,25 +37,15 @@ app.permanent_session_lifetime = timedelta(minutes=10)
 REFERENCE_FILE = "Reference_Data_Cell_Locations_20250403.csv"
 TAC_FILE = "TACD_UPDATED.csv"
 INPUT_FILE = "All_2025-4-2_3.txt"
-USAGE_FILES = auto_detect_usage_files()
-
-# Load VLRD data and ensure proper data types
-try:
-    VLRD = pd.read_excel('VLRD_Sample.xlsx')
-    VLRD['MSISDN'] = pd.to_numeric(VLRD['MSISDN'], errors='coerce')
-    VLRD = VLRD.dropna(subset=['MSISDN'])  
-    print(f"Loaded VLRD data with {len(VLRD)} records")
-except Exception as e:
-    print(f"Error loading VLRD data: {e}")
-    VLRD = pd.DataFrame() 
-
+USAGE_FILES = auto_detect_usage_files() 
+VLRD = pd.read_excel('VLRD_Sample.xlsx')
 
 def load_usage_data_with_month():
     df_list = []
     for month, file in USAGE_FILES.items():
         df = pd.read_csv(file, sep="\t")
-        df["Month"] = month
-        df.columns = [col.upper() for col in df.columns]
+        df.columns = [col.upper() for col in df.columns] 
+        df["MONTH"] = month 
         df_list.append(df)
     return pd.concat(df_list, ignore_index=True)
 
@@ -90,14 +83,6 @@ def login():
 def logout():
     session.pop("logged_in", None)
     return redirect(url_for('login'))
-
-def load_usage_data():
-    df_list = []
-    for month, file in USAGE_FILES.items():
-        df = pd.read_csv(file, sep="\t")
-        df["Month"] = month
-        df_list.append(df)
-    return pd.concat(df_list, ignore_index=True)
 
 #display user location on map
 def create_location_map(result_data):
@@ -223,20 +208,6 @@ def create_location_map(result_data):
         
         return map_obj
 
-    except Exception as e:
-        print(f"Error creating map: {e}")
-        map_obj = folium.Map(
-            location=[7.8731, 80.7718],
-            zoom_start=7,
-            tiles='OpenStreetMap'
-        )
-        folium.Marker(
-            location=[7.8731, 80.7718],
-            popup="Error creating map. Please try again later.",
-            icon=folium.Icon(color='red', icon='exclamation-sign')
-        ).add_to(map_obj)
-        return map_obj
-
 #user count by site
 def get_user_count(month=None, district=None):
     df_list = []
@@ -277,7 +248,7 @@ def get_user_count(month=None, district=None):
     result_df = result_df.sort_values(by='User_Count', ascending=False)
     return result_df
 
-usage_df = load_usage_data()
+usage_df = load_usage_data_with_month()
 
 SIM_TYPE_MAPPING = {
     '1': ("ESIM", "PRE"),
@@ -393,24 +364,24 @@ def get_msisdn_data(msisdn):
             }
 
             if not usage_records.empty:
-                grouped = usage_records.groupby("Month").sum(numeric_only=True)
+                grouped = usage_records.groupby("MONTH").sum(numeric_only=True)
                 for month in USAGE_FILES.keys():
                     monthly_usage["months"].append(month)
-                    monthly_usage["2G"].append(int(grouped.at[month, 'volume_2g_mb']) if month in grouped.index else 0)
-                    monthly_usage["3G"].append(int(grouped.at[month, 'volume_3g_mb']) if month in grouped.index else 0)
-                    monthly_usage["4G"].append(int(grouped.at[month, 'volume_4g_mb']) if month in grouped.index else 0)
-                    monthly_usage["5G"].append(int(grouped.at[month, 'volume_5g_mb']) if month in grouped.index else 0)
-                    monthly_usage["incoming_voice"].append(round(grouped.at[month, 'incoming_voice'], 2) if month in grouped.index else 0.00)
-                    monthly_usage["outgoing_voice"].append(round(grouped.at[month, 'outgoing_voice'], 2) if month in grouped.index else 0.00)
-                    monthly_usage["incoming_sms"].append(int(grouped.at[month, 'incoming_sms']) if month in grouped.index else 0)
-                    monthly_usage["outgoing_sms"].append(int(grouped.at[month, 'outgoing_sms']) if month in grouped.index else 0)
+                    monthly_usage["2G"].append(int(grouped.at[month, 'VOLUME_2G_MB']) if month in grouped.index else 0)
+                    monthly_usage["3G"].append(int(grouped.at[month, 'VOLUME_3G_MB']) if month in grouped.index else 0)
+                    monthly_usage["4G"].append(int(grouped.at[month, 'VOLUME_4G_MB']) if month in grouped.index else 0)
+                    monthly_usage["5G"].append(int(grouped.at[month, 'VOLUME_5G_MB']) if month in grouped.index else 0)
+                    monthly_usage["incoming_voice"].append(round(grouped.at[month, 'INCOMING_VOICE'], 2) if month in grouped.index else 0.00)
+                    monthly_usage["outgoing_voice"].append(round(grouped.at[month, 'OUTGOING_VOICE'], 2) if month in grouped.index else 0.00)
+                    monthly_usage["incoming_sms"].append(int(grouped.at[month, 'INCOMING_SMS']) if month in grouped.index else 0)
+                    monthly_usage["outgoing_sms"].append(int(grouped.at[month, 'OUTGOING_SMS']) if month in grouped.index else 0)
 
                     total = 0
                     if month in grouped.index:
-                        total = (int(grouped.at[month, 'volume_2g_mb']) +
-                                 int(grouped.at[month, 'volume_3g_mb']) +
-                                 int(grouped.at[month, 'volume_4g_mb']) +
-                                 int(grouped.at[month, 'volume_5g_mb']))
+                        total = (int(grouped.at[month, 'VOLUME_2G_MB']) +
+                                 int(grouped.at[month, 'VOLUME_3G_MB']) +
+                                 int(grouped.at[month, 'VOLUME_4G_MB']) +
+                                 int(grouped.at[month, 'VOLUME_5G_MB']))
                     monthly_usage["Total"].append(total)
 
             # Get common cell locations from VLRD data

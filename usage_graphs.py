@@ -8,7 +8,9 @@ def create_dash_app(server, latest_result, url_base_pathname='/usage-graph/'):
     def get_usage_figure():
         if not latest_result.get("Monthly Usage"):
             return go.Figure()
+        
         usage = latest_result["Monthly Usage"]
+        
         fig = go.Figure()
         for tech in ["2G", "3G", "4G", "5G"]:
             fig.add_trace(go.Scatter(x=usage["months"], y=usage[tech],
@@ -23,7 +25,9 @@ def create_dash_app(server, latest_result, url_base_pathname='/usage-graph/'):
     def get_total_usage_figure():
         if not latest_result.get("Monthly Usage"):
             return go.Figure()
+        
         usage = latest_result["Monthly Usage"]
+        
         fig = go.Figure()
         fig.add_trace(go.Bar(x=usage["months"], y=usage["Total"], name="Total Usage"))
         
@@ -36,7 +40,9 @@ def create_dash_app(server, latest_result, url_base_pathname='/usage-graph/'):
     def get_voice_usage_figure():
         if not latest_result.get("Monthly Usage"):
             return go.Figure()
+        
         usage = latest_result["Monthly Usage"]
+        
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=usage["months"], y=usage["incoming_voice"],
                              mode='lines+markers', name="Incoming Voice"))
@@ -52,7 +58,9 @@ def create_dash_app(server, latest_result, url_base_pathname='/usage-graph/'):
     def get_sms_Usage_figure():
         if not latest_result.get("Monthly Usage"):
             return go.Figure()
+        
         usage = latest_result["Monthly Usage"]
+        
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=usage["months"], y=usage["incoming_sms"],
                                  mode='lines+markers', name="Incoming SMS"))
@@ -63,8 +71,6 @@ def create_dash_app(server, latest_result, url_base_pathname='/usage-graph/'):
                           xaxis_title="Month", yaxis_title="SMS Count",
                           template="plotly_white")
         return fig
-    
-
 
     dash_app.layout = html.Div([
         html.H2("Line Graph - Monthly Usage"),
