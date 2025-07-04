@@ -105,8 +105,16 @@
               <td>{{ result['Model'] }}</td>
             </tr>
             <tr>
-              <td><strong>Hardware Type</strong></td>
+              <td><strong>Device Type</strong></td>
+              <td>{{ result['Device Type'] }}</td>
+            </tr>
+            <tr>
+              <td><strong>Primary Hardware Type</strong></td>
               <td>{{ result['Primary Hardware Type'] }}</td>
+            </tr>
+            <tr>
+              <td><strong>Year Released</strong></td>
+              <td>{{ result['Year Released'] }}</td>
             </tr>
             <tr>
               <td><strong>Operating System Version</strong></td>
@@ -156,7 +164,7 @@
               <td>{{ result['LAC'] }}</td>
             </tr>
             <tr>
-              <td><strong>SAC:</strong></td>
+              <td><strong>Cell_ID:</strong></td>
               <td>{{ result['SAC'] }}</td>
             </tr>
             {% if result["Common Cell Locations"] %}
@@ -191,7 +199,7 @@
               <td>{{ loc.LAC }}</td>
             </tr>
             <tr>
-              <td><strong>CELL</strong></td>
+              <td><strong>CELL_ID</strong></td>
               <td>{{ loc.CELL }}</td>
             </tr>
             {% if not loop.last %}
@@ -210,7 +218,7 @@
         </div>
       </div>
 
-      <!-- Location Map Tab Content - UPDATED -->
+      <!-- Location Map Tab Content-->
       <div class="tab-pane fade" id="location" role="tabpanel" aria-labelledby="location-tab">
         <div class="card p-4 mt-3">
           <div class="map-preview mb-3">
