@@ -10,6 +10,10 @@ import os
 import folium
 import calendar
 
+app = Flask(__name__)
+app.secret_key = "admin12345"
+app.permanent_session_lifetime = timedelta(minutes=10)
+
 def auto_detect_usage_files(data_directory="."):
     usage_files = {}    
     try:
@@ -23,15 +27,16 @@ def auto_detect_usage_files(data_directory="."):
             year = int(match.group(1))
             month = int(match.group(2))
             month_name = calendar.month_name[month]
+            month_year_key = f"{month_name} {year}"
             
-            if month_name not in usage_files or year > int(usage_files[month_name].split('_')[1]):
-                usage_files[month_name] = filename
+            usage_files[month_year_key] = {
+                'filename': filename,
+                'year': year,
+                'month': month,
+                'month_name': month_name
+            }
             
     return usage_files
-
-app = Flask(__name__)
-app.secret_key = "admin12345"
-app.permanent_session_lifetime = timedelta(minutes=10)
 
 # File paths
 REFERENCE_FILE = "Reference_Data_Cell_Locations_20250403.csv"
@@ -40,21 +45,21 @@ INPUT_FILE = "All_2025-4-2_3.txt"
 USAGE_FILES = auto_detect_usage_files() 
 VLRD = pd.read_excel('VLRD_Sample.xlsx')
 
+# Load reference data
+ref_df = pd.read_csv(REFERENCE_FILE)
+tac_df = pd.read_csv(TAC_FILE, low_memory=False)
+
 def load_usage_data_with_month():
     df_list = []
-    for month, file in USAGE_FILES.items():
-        df = pd.read_csv(file, sep="\t")
+    for month_year, file_info in USAGE_FILES.items():
+        df = pd.read_csv(file_info['filename'], sep="\t")
         df.columns = [col.upper() for col in df.columns] 
-        df["MONTH"] = month 
+        df["MONTH"] = month_year
         df_list.append(df)
     return pd.concat(df_list, ignore_index=True)
 
 USERTD = load_usage_data_with_month()
 
-
-# Load reference data
-ref_df = pd.read_csv(REFERENCE_FILE)
-tac_df = pd.read_csv(TAC_FILE, low_memory=False)
 
 @app.before_request
 def check_login():
@@ -211,10 +216,10 @@ def create_location_map(result_data):
 #user count by site
 def get_user_count(month=None, district=None):
     df_list = []
-    for m, file in USAGE_FILES.items():
+    for m, file_info in USAGE_FILES.items():
         if month and m != month:
             continue
-        df = pd.read_csv(file, sep="\t", dtype={"MSISDN": str})
+        df = pd.read_csv(file_info['filename'], sep="\t", dtype={"MSISDN": str})
         df.columns = [col.strip().upper() for col in df.columns]
         df["Month"] = m
         df_list.append(df)
@@ -365,7 +370,11 @@ def get_msisdn_data(msisdn):
 
             if not usage_records.empty:
                 grouped = usage_records.groupby("MONTH").sum(numeric_only=True)
-                for month in USAGE_FILES.keys():
+                # Sort months chronologically by year and month
+                sorted_months = sorted(USAGE_FILES.keys(), 
+                    key=lambda x: (USAGE_FILES[x]['year'], USAGE_FILES[x]['month']))
+                
+                for month in sorted_months:
                     monthly_usage["months"].append(month)
                     monthly_usage["2G"].append(int(grouped.at[month, 'VOLUME_2G_MB']) if month in grouped.index else 0)
                     monthly_usage["3G"].append(int(grouped.at[month, 'VOLUME_3G_MB']) if month in grouped.index else 0)

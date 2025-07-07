@@ -199,7 +199,7 @@
               <td>{{ loc.LAC }}</td>
             </tr>
             <tr>
-              <td><strong>CELL_ID</strong></td>
+              <td><strong>Cell_ID</strong></td>
               <td>{{ loc.CELL }}</td>
             </tr>
             {% if not loop.last %}
@@ -348,7 +348,7 @@
     const smsLayout = {
       title: "Monthly SMS Usage",
       xaxis: { title: "Month" },
-      yaxis: { title: "SMS Usage" },
+      yaxis: { title: "SMS Count" },
     };
 
     Plotly.newPlot("smsUsageChart", smsTraces, smsLayout, {
