@@ -176,7 +176,7 @@
             {% if result["Common Cell Locations"] %}
             {% for loc in result["Common Cell Locations"] %}
             <tr>
-              <td>Common Cell Locations (Recent Activity)</td>
+              <td>Common Cell Locations</td>
             </tr>
             <tr>
               <td><strong>Cell Code</strong></td>
@@ -282,7 +282,7 @@
       <!-- RSRP Data Tab Content -->
       <div class="tab-pane fade" id="rsrp" role="tabpanel" aria-labelledby="rsrp-tab">
         <div class="card p-4 mt-3">
-          <h5>RSRP Range Statistics</h5>
+          <h5>RSRP Range Statistics for Sites</h5>
           <table class="table table-bordered">
             <thead>
               <tr>
@@ -296,17 +296,23 @@
               </tr>
             </thead>
             <tbody>
-              {% for row in table_data %}
-              <tr>
-                <td>{{ row['Site_Name'] }}</td>
-                <td>{{ row['Cell_Name'] }}</td>
-                <td>{{ row['Site_ID'] }}</td>
-                <td>{{ row['RSRP Range 1 (>-105dBm) %'] }}</td>
-                <td>{{ row['RSRP Range 2 (-105~-110dBm) %'] }}</td>
-                <td>{{ row['RSRP Range 3 (-110~-115dBm) %'] }}</td>
-                <td>{{ row['RSRP < -115dBm'] }}</td>
-              </tr>
-              {% endfor %}
+              {% if result and result['RSRP Data'] %}
+                {% for row in result['RSRP Data'] %}
+                <tr>
+                  <td>{{ row['Site_Name'] }}</td>
+                  <td>{{ row['Cell_Name'] }}</td>
+                  <td>{{ row['Site_ID'] }}</td>
+                  <td>{{ row['RSRP Range 1 (>-105dBm) %'] }}%</td>
+                  <td>{{ row['RSRP Range 2 (-105~-110dBm) %'] }}%</td>
+                  <td>{{ row['RSRP Range 3 (-110~-115dBm) %'] }}%</td>
+                  <td>{{ row['RSRP < -115dBm %'] }}%</td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="7" class="text-center text-muted">No RSRP data available for this MSISDN</td>
+                </tr>
+              {% endif %}
             </tbody>
           </table>
         </div>

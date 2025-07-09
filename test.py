@@ -49,6 +49,14 @@ VLRD = pd.read_excel('VLRD_Sample.xlsx')
 ref_df = pd.read_csv(REFERENCE_FILE)
 tac_df = pd.read_csv(TAC_FILE, low_memory=False)
 
+# Load ZTE and Huawei RSRP data
+zte_rsrp_df = pd.read_excel('ZTE RSRP.xlsx')
+huawei_rsrp_df = pd.read_excel('Huawei RSRP.xlsx')
+
+# Print column names for debugging
+print("ZTE RSRP Columns:", zte_rsrp_df.columns)
+print("Huawei RSRP Columns:", huawei_rsrp_df.columns)
+
 def load_usage_data_with_month():
     df_list = []
     for month_year, file_info in USAGE_FILES.items():
@@ -423,6 +431,17 @@ def get_msisdn_data(msisdn):
                 print(f"Error processing VLRD data: {e}")
                 common_cells = []
 
+            # Get RSRP data for the current cell code
+            rsrp_data = []
+            if cellcode and cellcode != "Not Found":
+                try:
+                    rsrp_data = fetch_rsrp_data_directly(cellcode)
+                    if not rsrp_data:
+                        rsrp_data = []
+                except Exception as e:
+                    print(f"Error fetching RSRP data: {e}")
+                    rsrp_data = []
+
             result = {
                 "MSISDN": msisdn,
                 "IMSI": imsi,
@@ -448,7 +467,8 @@ def get_msisdn_data(msisdn):
                 "Technology": technology,
                 "Primary Hardware Type": primary_hardware_type,
                 "Monthly Usage": monthly_usage,
-                "Common Cell Locations": common_cells
+                "Common Cell Locations": common_cells,
+                "RSRP Data": rsrp_data
             }
 
             latest_result = result
@@ -616,24 +636,97 @@ def calculate_rsrp_ranges(cell_code):
     range_3 = len(combined_rsrp[(combined_rsrp['RSRP'] <= -110) & (combined_rsrp['RSRP'] > -115)]) / total_samples * 100
     range_4 = len(combined_rsrp[combined_rsrp['RSRP'] <= -115]) / total_samples * 100
 
-    # Retrieve site and cell names
+    # Retrieve site and cell names for all sites with the same Site_ID
     site_data = ref_df[ref_df['Site_ID'] == site_id]
 
     if site_data.empty:
         return None
 
-    site_name = site_data.iloc[0]['Site_Name']
-    cell_name = site_data.iloc[0]['Cell_Name']
+    site_info = []
+    for _, row in site_data.iterrows():
+        site_info.append({
+            'Site_Name': row['Site_Name'],
+            'Cell_Name': row['Cell_Name'],
+            'Site_ID': site_id,
+            'RSRP Range 1 (>-105dBm) %': range_1,
+            'RSRP Range 2 (-105~-110dBm) %': range_2,
+            'RSRP Range 3 (-110~-115dBm) %': range_3,
+            'RSRP < -115dBm': range_4
+        })
 
-    return {
-        'Site_Name': site_name,
-        'Cell_Name': cell_name,
-        'Site_ID': site_id,
-        'RSRP Range 1 (>-105dBm) %': range_1,
-        'RSRP Range 2 (-105~-110dBm) %': range_2,
-        'RSRP Range 3 (-110~-115dBm) %': range_3,
-        'RSRP < -115dBm': range_4
-    }
+    return site_info
+
+def fetch_rsrp_data_for_columns(cell_code):
+    global zte_rsrp_df, huawei_rsrp_df, ref_df
+
+    site_id = str(cell_code)[:6]  # Extract first six digits of CELL_CODE
+
+    # Filter RSRP data based on site_id
+    zte_filtered = zte_rsrp_df[zte_rsrp_df['Site_ID'] == site_id]
+    huawei_filtered = huawei_rsrp_df[huawei_rsrp_df['Site_ID'] == site_id]
+
+    if zte_filtered.empty and huawei_filtered.empty:
+        return None
+
+    # Combine RSRP data from both sources
+    combined_rsrp = pd.concat([zte_filtered, huawei_filtered], ignore_index=True)
+
+    # Calculate RSRP range percentages
+    total_samples = len(combined_rsrp)
+    range_1 = len(combined_rsrp[combined_rsrp['RSRP'] > -105]) / total_samples * 100
+    range_2 = len(combined_rsrp[(combined_rsrp['RSRP'] <= -105) & (combined_rsrp['RSRP'] > -110)]) / total_samples * 100
+    range_3 = len(combined_rsrp[(combined_rsrp['RSRP'] <= -110) & (combined_rsrp['RSRP'] > -115)]) / total_samples * 100
+    range_4 = len(combined_rsrp[combined_rsrp['RSRP'] <= -115]) / total_samples * 100
+
+    # Retrieve site and cell names for all sites with the same Site_ID
+    site_data = ref_df[ref_df['Site_ID'] == site_id]
+
+    if site_data.empty:
+        return None
+
+    site_info = []
+    for _, row in site_data.iterrows():
+        site_info.append({
+            'Site_Name': row['Site_Name'],
+            'Cell_Name': row['Cell_Name'],
+            'Site_ID': site_id,
+            'RSRP Range 1 (>-105dBm) %': range_1,
+            'RSRP Range 2 (-105~-110dBm) %': range_2,
+            'RSRP Range 3 (-110~-115dBm) %': range_3,
+            'RSRP < -115dBm': range_4
+        })
+
+    return site_info
+
+def fetch_rsrp_data_directly(cell_code):
+    global zte_rsrp_df, huawei_rsrp_df, ref_df
+
+    site_id = str(cell_code)[:6]  # Extract first six digits of CELL_CODE
+
+    # Filter RSRP data based on site_id (convert to string for comparison)
+    zte_filtered = zte_rsrp_df[zte_rsrp_df['Site_ID'].astype(str) == site_id]
+    huawei_filtered = huawei_rsrp_df[huawei_rsrp_df['Site_ID'].astype(str) == site_id]
+
+    if zte_filtered.empty and huawei_filtered.empty:
+        return None
+
+    # Combine RSRP data from both sources
+    combined_rsrp = pd.concat([zte_filtered, huawei_filtered], ignore_index=True)
+
+    site_info = []
+    # Create one entry for each row in the combined RSRP data
+    for _, rsrp_row in combined_rsrp.iterrows():
+        site_info.append({
+            'Site_Name': rsrp_row['Site Name'],
+            'Cell_Name': rsrp_row['Cell Name'],
+            'Site_ID': rsrp_row['Site_ID'],
+            'RSRP Range 1 (>-105dBm) %': round(float(rsrp_row['RSRP Range 1 (>-105dBm) %']) * 100, 2),
+            'RSRP Range 2 (-105~-110dBm) %': round(float(rsrp_row['RSRP Range 2 (-105~-110dBm) %']) * 100, 2),
+            'RSRP Range 3 (-110~-115dBm) %': round(float(rsrp_row['RSRP Range 3 (-110~-115dBm) %']) * 100, 2),
+            'RSRP < -115dBm %': round(float(rsrp_row['RSRP < -115dBm']) * 100, 2)
+        })
+
+    return site_info
 
 @app.route('/rsrp_ranges/<cell_code>')
 def display_rsrp_ranges(cell_code):
@@ -643,7 +736,27 @@ def display_rsrp_ranges(cell_code):
         flash(f"No RSRP data found for Cell Code {cell_code}", "error")
         return redirect(url_for('index'))
 
-    return render_template('export_vlr_data.html', table_data=[rsrp_data], selected_month=None, selected_district=None, months=list(USAGE_FILES.keys()))
+    return render_template('export_vlr_data.html', table_data=rsrp_data, selected_month=None, selected_district=None, months=list(USAGE_FILES.keys()))
+
+@app.route('/rsrp_data/<cell_code>')
+def display_rsrp_data(cell_code):
+    rsrp_data = fetch_rsrp_data_for_columns(cell_code)
+
+    if not rsrp_data:
+        flash(f"No RSRP data found for Cell Code {cell_code}", "error")
+        return redirect(url_for('index'))
+
+    return render_template('export_vlr_data.html', table_data=rsrp_data, selected_month=None, selected_district=None, months=list(USAGE_FILES.keys()))
+
+@app.route('/rsrp_ranges_direct/<cell_code>')
+def display_rsrp_ranges_direct(cell_code):
+    rsrp_data = fetch_rsrp_data_directly(cell_code)
+
+    if not rsrp_data:
+        flash(f"No RSRP data found for Cell Code {cell_code}", "error")
+        return redirect(url_for('index'))
+
+    return render_template('export_vlr_data.html', table_data=rsrp_data, selected_month=None, selected_district=None, months=list(USAGE_FILES.keys()))
 
 dash_app = create_dash_app(app, latest_result)
 
