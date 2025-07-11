@@ -416,14 +416,25 @@ def get_msisdn_data(msisdn):
                                 'LAC': row.get('LAC', 'Unknown'),
                                 'CELL': row.get('CELL', 'Unknown'),
                                 'LON': 'Not Found',
-                                'LAT': 'Not Found'
+                                'LAT': 'Not Found',
+                                'RSRP_DATA': []
                             }
                             
                             if cell_data['CELL_CODE'] != 'Unknown':
+                                # Get coordinates from reference data
                                 ref_match = ref_df[ref_df['cellcode'] == cell_data['CELL_CODE']]
                                 if not ref_match.empty:
                                     cell_data['LON'] = ref_match.iloc[0]['lon']
                                     cell_data['LAT'] = ref_match.iloc[0]['lat']
+                                
+                                # Get RSRP data for this cell's Site ID
+                                site_id = str(cell_data['CELL_CODE'])[:6]
+                                try:
+                                    rsrp_data_for_site = fetch_rsrp_data_by_site_id(site_id)
+                                    cell_data['RSRP_DATA'] = rsrp_data_for_site if rsrp_data_for_site else []
+                                except Exception as e:
+                                    print(f"Error fetching RSRP data for Site ID {site_id}: {e}")
+                                    cell_data['RSRP_DATA'] = []
                             
                             common_cells.append(cell_data)
                         
@@ -641,23 +652,39 @@ def filter_and_sort_rsrp_data(rsrp_data, filters=None, sort_by=None, sort_order=
     if filters:
         for key, value in filters.items():
             if value and str(value).strip(): 
+                # Text-based filters
                 if key in ['Cell_Name', 'Site_ID']:
                     filtered_data = [
                         row for row in filtered_data 
                         if str(value).lower() in str(row.get(key, '')).lower()
                     ]
-                elif key in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %', 
-                           'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
-                    try:
-                        filter_value = float(value)
-                        filtered_data = [
-                            row for row in filtered_data 
-                            if float(row.get(key, 0)) >= filter_value
-                        ]
-                    except (ValueError, TypeError):
-                        continue
+                # Range filtering (min/max)
+                elif key.endswith('_min'):
+                    rsrp_column = key.replace('_min', '')
+                    if rsrp_column in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %', 
+                                     'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
+                        try:
+                            min_value = float(value)
+                            filtered_data = [
+                                row for row in filtered_data 
+                                if float(row.get(rsrp_column, 0)) >= min_value
+                            ]
+                        except (ValueError, TypeError):
+                            continue
+                elif key.endswith('_max'):
+                    rsrp_column = key.replace('_max', '')
+                    if rsrp_column in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %', 
+                                     'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
+                        try:
+                            max_value = float(value)
+                            filtered_data = [
+                                row for row in filtered_data 
+                                if float(row.get(rsrp_column, 0)) <= max_value
+                            ]
+                        except (ValueError, TypeError):
+                            continue
     
-    if sort_by and sort_by in ['Cell_Name', 'Site_ID', 'RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %',
+    if sort_by and sort_by in ['Cell_Name', 'Site_ID', 'Site_Name', 'RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %',
                                'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
         try:
             is_numeric = sort_by in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %',
@@ -692,13 +719,16 @@ def display_rsrp_ranges_direct(cell_code):
     
     if request.method == 'POST':
         filters = {
-            'Site_Name': request.form.get('site_name_filter', ''),
             'Cell_Name': request.form.get('cell_name_filter', ''),
             'Site_ID': request.form.get('site_id_filter', ''),
-            'RSRP Range 1 (>-105dBm) %': request.form.get('rsrp_range1_filter', ''),
-            'RSRP Range 2 (-105~-110dBm) %': request.form.get('rsrp_range2_filter', ''),
-            'RSRP Range 3 (-110~-115dBm) %': request.form.get('rsrp_range3_filter', ''),
-            'RSRP < -115dBm %': request.form.get('rsrp_range4_filter', '')
+            'RSRP Range 1 (>-105dBm) %_min': request.form.get('rsrp_range1_min', ''),
+            'RSRP Range 1 (>-105dBm) %_max': request.form.get('rsrp_range1_max', ''),
+            'RSRP Range 2 (-105~-110dBm) %_min': request.form.get('rsrp_range2_min', ''),
+            'RSRP Range 2 (-105~-110dBm) %_max': request.form.get('rsrp_range2_max', ''),
+            'RSRP Range 3 (-110~-115dBm) %_min': request.form.get('rsrp_range3_min', ''),
+            'RSRP Range 3 (-110~-115dBm) %_max': request.form.get('rsrp_range3_max', ''),
+            'RSRP < -115dBm %_min': request.form.get('rsrp_range4_min', ''),
+            'RSRP < -115dBm %_max': request.form.get('rsrp_range4_max', '')
         }
         sort_by = request.form.get('sort_by', '')
         sort_order = request.form.get('sort_order', 'asc')
@@ -713,6 +743,22 @@ def display_rsrp_ranges_direct(cell_code):
                          current_sort_by=sort_by,
                          current_sort_order=sort_order)
 
+
+@app.route('/rsrp_by_site_id/<site_id>')
+def get_rsrp_by_site_id(site_id):
+    """Get RSRP data for a specific Site ID - for testing and direct access"""
+    try:
+        rsrp_data = fetch_rsrp_data_by_site_id(site_id)
+        if not rsrp_data:
+            return jsonify({'error': f'No RSRP data found for Site ID {site_id}'}), 404
+        
+        return jsonify({
+            'site_id': site_id,
+            'total_records': len(rsrp_data),
+            'data': rsrp_data
+        })
+    except Exception as e:
+        return jsonify({'error': f'Error fetching RSRP data: {str(e)}'}), 500
 
 @app.route('/filter_rsrp_data', methods=['POST'])
 def filter_rsrp_data():
@@ -736,10 +782,14 @@ def filter_rsrp_data():
     filters = {
         'Cell_Name': request.form.get('cell_name_filter', ''),
         'Site_ID': request.form.get('site_id_filter', ''),
-        'RSRP Range 1 (>-105dBm) %': request.form.get('rsrp_range1_filter', ''),
-        'RSRP Range 2 (-105~-110dBm) %': request.form.get('rsrp_range2_filter', ''),
-        'RSRP Range 3 (-110~-115dBm) %': request.form.get('rsrp_range3_filter', ''),
-        'RSRP < -115dBm %': request.form.get('rsrp_range4_filter', '')
+        'RSRP Range 1 (>-105dBm) %_min': request.form.get('rsrp_range1_min', ''),
+        'RSRP Range 1 (>-105dBm) %_max': request.form.get('rsrp_range1_max', ''),
+        'RSRP Range 2 (-105~-110dBm) %_min': request.form.get('rsrp_range2_min', ''),
+        'RSRP Range 2 (-105~-110dBm) %_max': request.form.get('rsrp_range2_max', ''),
+        'RSRP Range 3 (-110~-115dBm) %_min': request.form.get('rsrp_range3_min', ''),
+        'RSRP Range 3 (-110~-115dBm) %_max': request.form.get('rsrp_range3_max', ''),
+        'RSRP < -115dBm %_min': request.form.get('rsrp_range4_min', ''),
+        'RSRP < -115dBm %_max': request.form.get('rsrp_range4_max', '')
     }
     sort_by = request.form.get('sort_by', '')
     sort_order = request.form.get('sort_order', 'asc')
@@ -751,6 +801,95 @@ def filter_rsrp_data():
         'total_count': len(rsrp_data),
         'filtered_count': len(filtered_data)
     })
+
+@app.route('/filter_common_location_rsrp_data', methods=['POST'])
+def filter_common_location_rsrp_data():
+    """Handle RSRP filtering requests for common locations"""
+    msisdn = request.form.get('msisdn')
+    site_id = request.form.get('site_id')  # Site ID for the common location
+    
+    if not msisdn:
+        return jsonify({'error': 'MSISDN required'}), 400
+    
+    if not site_id:
+        return jsonify({'error': 'Site ID required'}), 400
+    
+    # Get RSRP data directly for the specific Site ID
+    site_rsrp_data = fetch_rsrp_data_by_site_id(site_id)
+    
+    if not site_rsrp_data:
+        return jsonify({'error': f'No RSRP data found for Site ID {site_id}'}), 404
+    
+    # Apply additional filters
+    filters = {
+        'Cell_Name': request.form.get('cell_name_filter', ''),
+        'Site_ID': request.form.get('site_id_filter', ''),
+        'RSRP Range 1 (>-105dBm) %_min': request.form.get('rsrp_range1_min', ''),
+        'RSRP Range 1 (>-105dBm) %_max': request.form.get('rsrp_range1_max', ''),
+        'RSRP Range 2 (-105~-110dBm) %_min': request.form.get('rsrp_range2_min', ''),
+        'RSRP Range 2 (-105~-110dBm) %_max': request.form.get('rsrp_range2_max', ''),
+        'RSRP Range 3 (-110~-115dBm) %_min': request.form.get('rsrp_range3_min', ''),
+        'RSRP Range 3 (-110~-115dBm) %_max': request.form.get('rsrp_range3_max', ''),
+        'RSRP < -115dBm %_min': request.form.get('rsrp_range4_min', ''),
+        'RSRP < -115dBm %_max': request.form.get('rsrp_range4_max', '')
+    }
+    sort_by = request.form.get('sort_by', '')
+    sort_order = request.form.get('sort_order', 'asc')
+    
+    filtered_data = filter_and_sort_rsrp_data(site_rsrp_data, filters, sort_by, sort_order)
+    
+    return jsonify({
+        'data': filtered_data,
+        'total_count': len(site_rsrp_data),
+        'filtered_count': len(filtered_data),
+        'site_id': site_id
+    })
+
+def fetch_rsrp_data_by_site_id(site_id):
+    """
+    Fetch RSRP data for a specific Site ID from both ZTE and Huawei datasets
+    """
+    global zte_rsrp_df, huawei_rsrp_df
+    
+    # Ensure site_id is a string and get first 6 characters
+    site_id_str = str(site_id)[:6]
+    
+    # Filter both datasets by Site_ID
+    zte_filtered = zte_rsrp_df[zte_rsrp_df['Site_ID'].astype(str) == site_id_str]
+    huawei_filtered = huawei_rsrp_df[huawei_rsrp_df['Site_ID'].astype(str) == site_id_str]
+    
+    if zte_filtered.empty and huawei_filtered.empty:
+        return []
+    
+    site_info = []
+    
+    # Process ZTE data
+    for _, rsrp_row in zte_filtered.iterrows():
+        site_info.append({
+            'Site_Name': rsrp_row['Site Name'],
+            'Cell_Name': rsrp_row['Cell Name'],
+            'Site_ID': rsrp_row['Site_ID'],
+            'RSRP Range 1 (>-105dBm) %': round(float(rsrp_row['RSRP Range 1 (>-105dBm) %']) * 100, 2),
+            'RSRP Range 2 (-105~-110dBm) %': round(float(rsrp_row['RSRP Range 2 (-105~-110dBm) %']) * 100, 2),
+            'RSRP Range 3 (-110~-115dBm) %': round(float(rsrp_row['RSRP Range 3 (-110~-115dBm) %']) * 100, 2),
+            'RSRP < -115dBm %': round(float(rsrp_row['RSRP < -115dBm']) * 100, 2),
+            'Source': 'ZTE'
+        })
+    
+    # Process Huawei data
+    for _, rsrp_row in huawei_filtered.iterrows():
+        site_info.append({
+            'Site_Name': rsrp_row['Site Name'],
+            'Cell_Name': rsrp_row['Cell Name'],
+            'Site_ID': rsrp_row['Site_ID'],
+            'RSRP Range 1 (>-105dBm) %': round(float(rsrp_row['RSRP Range 1 (>-105dBm) %']), 2),
+            'RSRP Range 2 (-105~-110dBm) %': round(float(rsrp_row['RSRP Range 2 (-105~-110dBm) %']), 2),
+            'RSRP Range 3 (-110~-115dBm) %': round(float(rsrp_row['RSRP Range 3 (-110~-115dBm) %']), 2),
+            'RSRP < -115dBm %': round(float(rsrp_row['RSRP < -115dBm']), 2),
+            'Source': 'Huawei'
+        })
+    
+    return site_info
 
 dash_app = create_dash_app(app, latest_result)
 
