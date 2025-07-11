@@ -592,127 +592,21 @@ def download_user_count():
         download_name=filename
     )
 
-# RSRP range mapping
-# def get_rsrp_ranges(cell_code):
-#     global zte_rsrp_df, huawei_rsrp_df
-
-#     site_id = str(cell_code)[:6]
-
-#     zte_filtered = zte_rsrp_df[zte_rsrp_df['Site_ID'] == site_id]
-#     huawei_filtered = huawei_rsrp_df[huawei_rsrp_df['Site_ID'] == site_id]
-
-#     if zte_filtered.empty and huawei_filtered.empty:
-#         return None
-
-#     combined_rsrp = pd.concat([zte_filtered, huawei_filtered], ignore_index=True)
-
-#     rsrp_ranges = combined_rsrp[['Site_ID', 'RSRP']].groupby('Site_ID').agg(['min', 'max']).reset_index()
-#     rsrp_ranges.columns = ['Site_ID', 'Min_RSRP', 'Max_RSRP']
-
-#     return rsrp_ranges.to_dict(orient='records')
-
-# def calculate_rsrp_ranges(cell_code):
-#     global zte_rsrp_df, huawei_rsrp_df, ref_df
-
-#     site_id = str(cell_code)[:6]  # Extract first six digits of CELL_CODE
-
-#     # Filter RSRP data based on site_id
-#     zte_filtered = zte_rsrp_df[zte_rsrp_df['Site_ID'] == site_id]
-#     huawei_filtered = huawei_rsrp_df[huawei_rsrp_df['Site_ID'] == site_id]
-
-#     if zte_filtered.empty and huawei_filtered.empty:
-#         return None
-
-#     # Combine RSRP data from both sources
-#     combined_rsrp = pd.concat([zte_filtered, huawei_filtered], ignore_index=True)
-
-#     # Calculate RSRP range percentages
-#     total_samples = len(combined_rsrp)
-#     range_1 = len(combined_rsrp[combined_rsrp['RSRP'] > -105])
-#     range_2 = len(combined_rsrp[(combined_rsrp['RSRP'] <= -105) & (combined_rsrp['RSRP'] > -110)]) 
-#     range_3 = len(combined_rsrp[(combined_rsrp['RSRP'] <= -110) & (combined_rsrp['RSRP'] > -115)])
-#     range_4 = len(combined_rsrp[combined_rsrp['RSRP'] <= -115])
-
-#     # Retrieve site and cell names for all sites with the same Site_ID
-#     site_data = ref_df[ref_df['Site_ID'] == site_id]
-
-#     if site_data.empty:
-#         return None
-
-#     site_info = []
-#     for _, row in site_data.iterrows():
-#         site_info.append({
-#             'Site_Name': row['Site_Name'],
-#             'Cell_Name': row['Cell_Name'],
-#             'Site_ID': site_id,
-#             'RSRP Range 1 (>-105dBm) %': range_1,
-#             'RSRP Range 2 (-105~-110dBm) %': range_2,
-#             'RSRP Range 3 (-110~-115dBm) %': range_3,
-#             'RSRP < -115dBm': range_4
-#         })
-
-#     return site_info
-
-# def fetch_rsrp_data_for_columns(cell_code):
-#     global zte_rsrp_df, huawei_rsrp_df, ref_df
-
-#     site_id = str(cell_code)[:6]
-
-#     # Filter RSRP data based on site_id
-#     zte_filtered = zte_rsrp_df[zte_rsrp_df['Site_ID'] == site_id]
-#     huawei_filtered = huawei_rsrp_df[huawei_rsrp_df['Site_ID'] == site_id]
-
-#     if zte_filtered.empty and huawei_filtered.empty:
-#         return None
-
-#     # Combine RSRP data from both sources
-#     combined_rsrp = pd.concat([zte_filtered, huawei_filtered], ignore_index=True)
-
-#     # Calculate RSRP range percentages
-#     total_samples = len(combined_rsrp)
-#     range_1 = len(combined_rsrp[combined_rsrp['RSRP'] > -105])
-#     range_2 = len(combined_rsrp[(combined_rsrp['RSRP'] <= -105) & (combined_rsrp['RSRP'] > -110)])
-#     range_3 = len(combined_rsrp[(combined_rsrp['RSRP'] <= -110) & (combined_rsrp['RSRP'] > -115)])
-#     range_4 = len(combined_rsrp[combined_rsrp['RSRP'] <= -115])
-
-#     # Retrieve site and cell names for all sites with the same Site_ID
-#     site_data = ref_df[ref_df['Site_ID'] == site_id]
-
-#     if site_data.empty:
-#         return None
-
-#     site_info = []
-#     for _, row in site_data.iterrows():
-#         site_info.append({
-#             'Site_Name': row['Site_Name'],
-#             'Cell_Name': row['Cell_Name'],
-#             'Site_ID': site_id,
-#             'RSRP Range 1 (>-105dBm) %': range_1,
-#             'RSRP Range 2 (-105~-110dBm) %': range_2,
-#             'RSRP Range 3 (-110~-115dBm) %': range_3,
-#             'RSRP < -115dBm': range_4
-#         })
-
-#     return site_info
-
 def fetch_rsrp_data_directly(cell_code):
     global zte_rsrp_df, huawei_rsrp_df, ref_df
 
-    site_id = str(cell_code)[:6]  # Extract first six digits of CELL_CODE
+    site_id = str(cell_code)[:6] 
 
-    # Filter RSRP data based on site_id (convert to string for comparison)
     zte_filtered = zte_rsrp_df[zte_rsrp_df['Site_ID'].astype(str) == site_id]
     huawei_filtered = huawei_rsrp_df[huawei_rsrp_df['Site_ID'].astype(str) == site_id]
 
     if zte_filtered.empty and huawei_filtered.empty:
         return None
 
-    # Combine RSRP data from both sources
-    combined_rsrp = pd.concat([zte_filtered, huawei_filtered], ignore_index=True)
-
     site_info = []
-    # Create one entry for each row in the combined RSRP data
-    for _, rsrp_row in combined_rsrp.iterrows():
+    
+    # Process ZTE data (multiply by 100)
+    for _, rsrp_row in zte_filtered.iterrows():
         site_info.append({
             'Site_Name': rsrp_row['Site Name'],
             'Cell_Name': rsrp_row['Cell Name'],
@@ -722,28 +616,20 @@ def fetch_rsrp_data_directly(cell_code):
             'RSRP Range 3 (-110~-115dBm) %': round(float(rsrp_row['RSRP Range 3 (-110~-115dBm) %']) * 100, 2),
             'RSRP < -115dBm %': round(float(rsrp_row['RSRP < -115dBm']) * 100, 2)
         })
+    
+    # Process Huawei data (use as-is, but format to 2 decimal places)
+    for _, rsrp_row in huawei_filtered.iterrows():
+        site_info.append({
+            'Site_Name': rsrp_row['Site Name'],
+            'Cell_Name': rsrp_row['Cell Name'],
+            'Site_ID': rsrp_row['Site_ID'],
+            'RSRP Range 1 (>-105dBm) %': round(float(rsrp_row['RSRP Range 1 (>-105dBm) %']), 2),
+            'RSRP Range 2 (-105~-110dBm) %': round(float(rsrp_row['RSRP Range 2 (-105~-110dBm) %']), 2),
+            'RSRP Range 3 (-110~-115dBm) %': round(float(rsrp_row['RSRP Range 3 (-110~-115dBm) %']), 2),
+            'RSRP < -115dBm %': round(float(rsrp_row['RSRP < -115dBm']), 2)
+        })
 
     return site_info
-
-# @app.route('/rsrp_ranges/<cell_code>')
-# def display_rsrp_ranges(cell_code):
-#     rsrp_data = calculate_rsrp_ranges(cell_code)
-
-#     if not rsrp_data:
-#         flash(f"No RSRP data found for Cell Code {cell_code}", "error")
-#         return redirect(url_for('index'))
-
-#     return render_template('export_vlr_data.html', table_data=rsrp_data, selected_month=None, selected_district=None, months=list(USAGE_FILES.keys()))
-
-# @app.route('/rsrp_data/<cell_code>')
-# def display_rsrp_data(cell_code):
-#     rsrp_data = fetch_rsrp_data_for_columns(cell_code)
-
-#     if not rsrp_data:
-#         flash(f"No RSRP data found for Cell Code {cell_code}", "error")
-#         return redirect(url_for('index'))
-
-#     return render_template('export_vlr_data.html', table_data=rsrp_data, selected_month=None, selected_district=None, months=list(USAGE_FILES.keys()))
 
 @app.route('/rsrp_ranges_direct/<cell_code>')
 def display_rsrp_ranges_direct(cell_code):
