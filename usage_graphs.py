@@ -13,12 +13,15 @@ def create_dash_app(server, latest_result, url_base_pathname='/usage-graph/'):
         
         fig = go.Figure()
         for tech in ["2G", "3G", "4G", "5G"]:
-            fig.add_trace(go.Scatter(x=usage["months"], y=usage[tech],
+            # Convert MB to GB by dividing by 1024 and round to 2 decimal places
+            usage_gb = [round(mb / 1024, 2) for mb in usage[tech]]
+            fig.add_trace(go.Scatter(x=usage["months"], y=usage_gb,
                                      mode='lines+markers', name=tech))
         
         fig.update_layout(title="Monthly Usage by Network Type",
-                          xaxis_title="Month", yaxis_title="Usage (MB)",
-                          template="plotly_white")
+                          xaxis_title="Month", yaxis_title="Usage (GB)",
+                          template="plotly_white",
+                          yaxis=dict(tickformat='.2f'))
         return fig
 
     #total data usage
@@ -29,11 +32,14 @@ def create_dash_app(server, latest_result, url_base_pathname='/usage-graph/'):
         usage = latest_result["Monthly Usage"]
         
         fig = go.Figure()
-        fig.add_trace(go.Bar(x=usage["months"], y=usage["Total"], name="Total Usage"))
+        # Convert MB to GB by dividing by 1024 and round to 2 decimal places
+        total_usage_gb = [round(mb / 1024, 2) for mb in usage["Total"]]
+        fig.add_trace(go.Bar(x=usage["months"], y=total_usage_gb, name="Total Usage"))
         
         fig.update_layout(title="Total Monthly Usage",
-                          xaxis_title="Month", yaxis_title="Total Usage (MB)",
-                          template="plotly_white")
+                          xaxis_title="Month", yaxis_title="Total Usage (GB)",
+                          template="plotly_white",
+                          yaxis=dict(tickformat='.2f'))
         return fig
     
     #voice usage
@@ -82,10 +88,10 @@ def create_dash_app(server, latest_result, url_base_pathname='/usage-graph/'):
         html.H2("Line Graph - Monthly Incoming & Outgoing Calls"),
         dcc.Graph(id='voice-usage-graph', figure=get_voice_usage_figure()),
 
-        html.H2("Line Chart - monthly Incoming & Outgoing SMS"),
+        html.H2("Line Chart - Monthly Incoming & Outgoing SMS"),
         dcc.Graph(id='sms-usage-graph', figure=get_sms_Usage_figure()),
         
-        html.Div("Search an MSISDN from Flask '/' and come back to see chart.")
+        html.Div("Search an MSISDN from Flask '/' and come back to see chart. Data usage is displayed in GB.")
     ])
 
     return dash_app
