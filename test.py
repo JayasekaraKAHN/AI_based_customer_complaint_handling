@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
+from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify
 from datetime import timedelta
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.serving import run_simple
@@ -605,7 +605,7 @@ def fetch_rsrp_data_directly(cell_code):
 
     site_info = []
     
-    # Process ZTE data (multiply by 100)
+    # Process ZTE data
     for _, rsrp_row in zte_filtered.iterrows():
         site_info.append({
             'Site_Name': rsrp_row['Site Name'],
@@ -617,7 +617,7 @@ def fetch_rsrp_data_directly(cell_code):
             'RSRP < -115dBm %': round(float(rsrp_row['RSRP < -115dBm']) * 100, 2)
         })
     
-    # Process Huawei data (use as-is, but format to 2 decimal places)
+    # Process Huawei data
     for _, rsrp_row in huawei_filtered.iterrows():
         site_info.append({
             'Site_Name': rsrp_row['Site Name'],
@@ -631,7 +631,54 @@ def fetch_rsrp_data_directly(cell_code):
 
     return site_info
 
-@app.route('/rsrp_ranges_direct/<cell_code>')
+def filter_and_sort_rsrp_data(rsrp_data, filters=None, sort_by=None, sort_order='asc'):
+
+    if not rsrp_data:
+        return []
+    
+    filtered_data = rsrp_data.copy()
+    
+    if filters:
+        for key, value in filters.items():
+            if value and str(value).strip(): 
+                if key in ['Cell_Name', 'Site_ID']:
+                    filtered_data = [
+                        row for row in filtered_data 
+                        if str(value).lower() in str(row.get(key, '')).lower()
+                    ]
+                elif key in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %', 
+                           'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
+                    try:
+                        filter_value = float(value)
+                        filtered_data = [
+                            row for row in filtered_data 
+                            if float(row.get(key, 0)) >= filter_value
+                        ]
+                    except (ValueError, TypeError):
+                        continue
+    
+    if sort_by and sort_by in ['Cell_Name', 'Site_ID', 'RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %',
+                               'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
+        try:
+            is_numeric = sort_by in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %',
+                                   'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']
+            
+            if is_numeric:
+                filtered_data.sort(
+                    key=lambda x: float(x.get(sort_by, 0)),
+                    reverse=(sort_order == 'desc')
+                )
+            else:
+                filtered_data.sort(
+                    key=lambda x: str(x.get(sort_by, '')).lower(),
+                    reverse=(sort_order == 'desc')
+                )
+        except (ValueError, TypeError):
+            pass 
+    
+    return filtered_data
+
+@app.route('/rsrp_ranges_direct/<cell_code>', methods=['GET', 'POST'])
 def display_rsrp_ranges_direct(cell_code):
     rsrp_data = fetch_rsrp_data_directly(cell_code)
 
@@ -639,7 +686,71 @@ def display_rsrp_ranges_direct(cell_code):
         flash(f"No RSRP data found for Cell Code {cell_code}", "error")
         return redirect(url_for('index'))
 
-    return render_template('export_vlr_data.html', table_data=rsrp_data, selected_month=None, selected_district=None, months=list(USAGE_FILES.keys()))
+    filters = {}
+    sort_by = ''
+    sort_order = 'asc'
+    
+    if request.method == 'POST':
+        filters = {
+            'Site_Name': request.form.get('site_name_filter', ''),
+            'Cell_Name': request.form.get('cell_name_filter', ''),
+            'Site_ID': request.form.get('site_id_filter', ''),
+            'RSRP Range 1 (>-105dBm) %': request.form.get('rsrp_range1_filter', ''),
+            'RSRP Range 2 (-105~-110dBm) %': request.form.get('rsrp_range2_filter', ''),
+            'RSRP Range 3 (-110~-115dBm) %': request.form.get('rsrp_range3_filter', ''),
+            'RSRP < -115dBm %': request.form.get('rsrp_range4_filter', '')
+        }
+        sort_by = request.form.get('sort_by', '')
+        sort_order = request.form.get('sort_order', 'asc')
+        
+        rsrp_data = filter_and_sort_rsrp_data(rsrp_data, filters, sort_by, sort_order)
+
+    return render_template('export_vlr_data.html',
+                         table_data=rsrp_data, 
+                         is_rsrp_data=True,
+                         cell_code=cell_code,
+                         current_filters=filters,
+                         current_sort_by=sort_by,
+                         current_sort_order=sort_order)
+
+
+@app.route('/filter_rsrp_data', methods=['POST'])
+def filter_rsrp_data():
+    """Handle RSRP filtering requests from the main index page"""
+    msisdn = request.form.get('msisdn')
+    if not msisdn:
+        return jsonify({'error': 'MSISDN required'}), 400
+    
+    result = get_msisdn_data(msisdn)
+    if "error" in result:
+        return jsonify({'error': result["error"]}), 404
+    
+    cellcode = result.get('Cellcode')
+    if not cellcode or cellcode == "Not Found":
+        return jsonify({'error': 'No cell code found for this MSISDN'}), 404
+    
+    rsrp_data = fetch_rsrp_data_directly(cellcode)
+    if not rsrp_data:
+        return jsonify({'error': 'No RSRP data found'}), 404
+    
+    filters = {
+        'Cell_Name': request.form.get('cell_name_filter', ''),
+        'Site_ID': request.form.get('site_id_filter', ''),
+        'RSRP Range 1 (>-105dBm) %': request.form.get('rsrp_range1_filter', ''),
+        'RSRP Range 2 (-105~-110dBm) %': request.form.get('rsrp_range2_filter', ''),
+        'RSRP Range 3 (-110~-115dBm) %': request.form.get('rsrp_range3_filter', ''),
+        'RSRP < -115dBm %': request.form.get('rsrp_range4_filter', '')
+    }
+    sort_by = request.form.get('sort_by', '')
+    sort_order = request.form.get('sort_order', 'asc')
+    
+    filtered_data = filter_and_sort_rsrp_data(rsrp_data, filters, sort_by, sort_order)
+    
+    return jsonify({
+        'data': filtered_data,
+        'total_count': len(rsrp_data),
+        'filtered_count': len(filtered_data)
+    })
 
 dash_app = create_dash_app(app, latest_result)
 

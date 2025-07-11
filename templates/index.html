@@ -25,6 +25,29 @@
       border-radius: 8px;
       overflow: hidden;
     }
+    
+    /* RSRP Table Styles */
+    .rsrp-site-cell {
+      background-color: #f8f9fa !important;
+      font-weight: bold !important;
+      border-right: 2px solid #dee2e6 !important;
+      vertical-align: middle !important;
+    }
+    
+    .rsrp-site-id-cell {
+      background-color: #e9ecef !important;
+      font-weight: 600 !important;
+      border-right: 1px solid #dee2e6 !important;
+      vertical-align: middle !important;
+    }
+    
+    .rsrp-row {
+      border-bottom: 1px solid #e9ecef;
+    }
+    
+    .rsrp-row:hover {
+      background-color: #f5f5f5;
+    }
 
   </style>
 </head>
@@ -173,8 +196,8 @@
               <td><strong>Cell_ID:</strong></td>
               <td>{{ result['SAC'] }}</td>
             </tr>
-            {% if result["Common Cell Locations"] %}
-            {% for loc in result["Common Cell Locations"] %}
+            {% if result["Common Cell Location"] %}
+            {% for loc in result["Common Cell Location"] %}
             <tr>
               <td>Common Cell Locations</td>
             </tr>
@@ -282,39 +305,125 @@
       <!-- RSRP Data Tab Content -->
       <div class="tab-pane fade" id="rsrp" role="tabpanel" aria-labelledby="rsrp-tab">
         <div class="card p-4 mt-3">
-          <h5>RSRP Range Statistics for Sites</h5>
-          <table class="table table-bordered">
-            <thead>
-              <tr>
-                <th>Site Name</th>
-                <th>Cell Name</th>
-                <th>Site ID</th>
-                <th>RSRP Range 1 (>-105dBm) %</th>
-                <th>RSRP Range 2 (-105~-110dBm) %</th>
-                <th>RSRP Range 3 (-110~-115dBm) %</th>
-                <th>RSRP < -115dBm</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% if result and result['RSRP Data'] %}
-                {% for row in result['RSRP Data'] %}
+          <h5>RSRP for Recent Location</h5>
+          
+          <!-- RSRP Filtering Controls -->
+          <div class="row mb-3">
+            <div class="col-md-12">
+              <div class="bg-light p-3 rounded">
+                <h6>Filter RSRP Data:</h6>
+                <form id="rsrpFilterForm">
+                  <input type="hidden" name="msisdn" value="{{ result['MSISDN'] }}">
+                  <div class="row g-2 mb-2">
+                    <div class="col-md-6">
+                      <input type="text" name="cell_name_filter" placeholder="Cell Name..." class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-6">
+                      <input type="text" name="site_id_filter" placeholder="Site ID..." class="form-control form-control-sm">
+                    </div>
+                  </div>
+                  <div class="row g-2 mb-2">
+                    <div class="col-md-3">
+                      <input type="number" name="rsrp_range1_filter" placeholder="Range 1 (≥%)" step="0.01" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-3">
+                      <input type="number" name="rsrp_range2_filter" placeholder="Range 2 (≥%)" step="0.01" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-3">
+                      <input type="number" name="rsrp_range3_filter" placeholder="Range 3 (≥%)" step="0.01" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-3">
+                      <input type="number" name="rsrp_range4_filter" placeholder="Range 4 (≥%)" step="0.01" class="form-control form-control-sm">
+                    </div>
+                  </div>
+                  <div class="row g-2 mb-2">
+                    <div class="col-md-4">
+                      <select name="sort_by" class="form-select form-select-sm">
+                        <option value="">Sort by...</option>
+                        <option value="Cell_Name">Cell Name</option>
+                        <option value="Site_ID">Site ID</option>
+                        <option value="RSRP Range 1 (>-105dBm) %">RSRP Range 1</option>
+                        <option value="RSRP Range 2 (-105~-110dBm) %">RSRP Range 2</option>
+                        <option value="RSRP Range 3 (-110~-115dBm) %">RSRP Range 3</option>
+                        <option value="RSRP < -115dBm %">RSRP < -115dBm</option>
+                      </select>
+                    </div>
+                    <div class="col-md-3">
+                      <select name="sort_order" class="form-select form-select-sm">
+                        <option value="asc">Ascending</option>
+                        <option value="desc">Descending</option>
+                      </select>
+                    </div>
+                    <div class="col-md-5">
+                      <button type="button" onclick="applyRsrpFilters()" class="btn btn-primary btn-sm">Apply Filters</button>
+                      <button type="button" onclick="clearRsrpFilters()" class="btn btn-secondary btn-sm">Clear</button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+          
+          <!-- RSRP Table -->
+          <div id="rsrpTableContainer">
+            <table class="table table-bordered" id="rsrpTable">
+              <thead>
                 <tr>
-                  <td>{{ row['Site_Name'] }}</td>
-                  <td>{{ row['Cell_Name'] }}</td>
-                  <td>{{ row['Site_ID'] }}</td>
-                  <td>{{ row['RSRP Range 1 (>-105dBm) %'] }}%</td>
-                  <td>{{ row['RSRP Range 2 (-105~-110dBm) %'] }}%</td>
-                  <td>{{ row['RSRP Range 3 (-110~-115dBm) %'] }}%</td>
-                  <td>{{ row['RSRP < -115dBm %'] }}%</td>
+                  <th>Site Name</th>
+                  <th>Cell Name</th>
+                  <th>Site ID</th>
+                  <th>RSRP Range 1 (>-105dBm) %</th>
+                  <th>RSRP Range 2 (-105~-110dBm) %</th>
+                  <th>RSRP Range 3 (-110~-115dBm) %</th>
+                  <th>RSRP < -115dBm %</th>
                 </tr>
-                {% endfor %}
-              {% else %}
-                <tr>
-                  <td colspan="7" class="text-center text-muted">No RSRP data available for this MSISDN</td>
-                </tr>
-              {% endif %}
-            </tbody>
-          </table>
+              </thead>
+              <tbody id="rsrpTableBody">
+                {% if result and result['RSRP Data'] %}
+                  {% set grouped_rsrp = {} %}
+                  {% for row in result['RSRP Data'] %}
+                    {% set site_name = row['Site_Name'] %}
+                    {% set site_id = row['Site_ID'] %}
+                    {% if site_name not in grouped_rsrp %}
+                      {% set _ = grouped_rsrp.update({site_name: {}}) %}
+                    {% endif %}
+                    {% if site_id not in grouped_rsrp[site_name] %}
+                      {% set _ = grouped_rsrp[site_name].update({site_id: []}) %}
+                    {% endif %}
+                    {% set _ = grouped_rsrp[site_name][site_id].append(row) %}
+                  {% endfor %}
+                  
+                  {% for site_name, site_id_groups in grouped_rsrp.items() %}
+                    {% set total_site_name_rows = site_id_groups.values() | map('length') | sum %}
+                    {% set site_name_row_index = [0] %}
+                    {% for site_id, site_id_rows in site_id_groups.items() %}
+                      {% for row in site_id_rows %}
+                        <tr class="rsrp-row">
+                          {% if site_name_row_index[0] == 0 %}
+                            <td rowspan="{{ total_site_name_rows }}" class="rsrp-site-cell">{{ site_name }}</td>
+                          {% endif %}
+                          {% if loop.index == 1 %}
+                            <td rowspan="{{ site_id_rows|length }}" class="rsrp-site-id-cell">{{ site_id }}</td>
+                          {% endif %}
+                          <td>{{ row['Cell_Name'] }}</td>
+                          <td>{{ row['RSRP Range 1 (>-105dBm) %'] }}%</td>
+                          <td>{{ row['RSRP Range 2 (-105~-110dBm) %'] }}%</td>
+                          <td>{{ row['RSRP Range 3 (-110~-115dBm) %'] }}%</td>
+                          <td>{{ row['RSRP < -115dBm %'] }}%</td>
+                        </tr>
+                        {% set _ = site_name_row_index.append(site_name_row_index.pop() + 1) %}
+                      {% endfor %}
+                    {% endfor %}
+                  {% endfor %}
+                {% else %}
+                  <tr>
+                    <td colspan="7" class="text-center text-muted">No RSRP data available for this MSISDN</td>
+                  </tr>
+                {% endif %}
+              </tbody>
+            </table>
+            <div id="rsrpStatus" class="text-muted small"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -399,6 +508,120 @@
     Plotly.newPlot("smsUsageChart", smsTraces, smsLayout, {
       responsive: true,
     });
+  </script>
+  
+  <!-- RSRP Filtering JavaScript -->
+  <script>
+    function applyRsrpFilters() {
+      const form = document.getElementById('rsrpFilterForm');
+      const formData = new FormData(form);
+      
+      fetch('/filter_rsrp_data', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.error) {
+          alert('Error: ' + data.error);
+          return;
+        }
+        
+        updateRsrpTable(data.data);
+        updateRsrpStatus(data.filtered_count, data.total_count);
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('Error filtering RSRP data');
+      });
+    }
+    
+    function clearRsrpFilters() {
+      const form = document.getElementById('rsrpFilterForm');
+      const inputs = form.querySelectorAll('input[type="text"], input[type="number"], select');
+      inputs.forEach(input => {
+        if (input.name !== 'msisdn') {
+          input.value = '';
+        }
+      });
+      
+      // Reset to original data
+      location.reload();
+    }
+    
+    function updateRsrpTable(data) {
+      const tbody = document.getElementById('rsrpTableBody');
+      tbody.innerHTML = '';
+      
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No RSRP data matches the current filters</td></tr>';
+        return;
+      }
+      
+      // Group data by Site Name, then by Site ID
+      const groupedData = {};
+      data.forEach(row => {
+        const siteName = row['Site_Name'];
+        const siteId = row['Site_ID'];
+        
+        if (!groupedData[siteName]) {
+          groupedData[siteName] = {};
+        }
+        if (!groupedData[siteName][siteId]) {
+          groupedData[siteName][siteId] = [];
+        }
+        groupedData[siteName][siteId].push(row);
+      });
+      
+      // Create table rows with merged Site Name and Site ID cells
+      Object.keys(groupedData).forEach(siteName => {
+        const siteNameGroups = groupedData[siteName];
+        const totalSiteNameRows = Object.values(siteNameGroups).reduce((sum, arr) => sum + arr.length, 0);
+        let siteNameRowIndex = 0;
+        
+        Object.keys(siteNameGroups).forEach(siteId => {
+          const siteIdRows = siteNameGroups[siteId];
+          
+          siteIdRows.forEach((row, cellIndex) => {
+            const tr = document.createElement('tr');
+            tr.className = 'rsrp-row';
+            
+            let html = '';
+            
+            // Only show Site Name in the first row for this site name
+            if (siteNameRowIndex === 0) {
+              html += `<td rowspan="${totalSiteNameRows}" class="rsrp-site-cell">${siteName}</td>`;
+            }
+            
+            // Only show Site ID in the first row for this site ID
+            if (cellIndex === 0) {
+              html += `<td rowspan="${siteIdRows.length}" class="rsrp-site-id-cell">${siteId}</td>`;
+            }
+            
+            html += `
+              <td>${row['Cell_Name']}</td>
+              <td>${row['RSRP Range 1 (>-105dBm) %']}%</td>
+              <td>${row['RSRP Range 2 (-105~-110dBm) %']}%</td>
+              <td>${row['RSRP Range 3 (-110~-115dBm) %']}%</td>
+              <td>${row['RSRP < -115dBm %']}%</td>
+            `;
+            
+            tr.innerHTML = html;
+            tbody.appendChild(tr);
+            siteNameRowIndex++;
+          });
+        });
+      });
+    }
+    
+    function updateRsrpStatus(filteredCount, totalCount) {
+      const statusDiv = document.getElementById('rsrpStatus');
+      if (filteredCount < totalCount) {
+        statusDiv.textContent = `Showing ${filteredCount} of ${totalCount} RSRP records (filtered)`;
+      } else {
+        statusDiv.textContent = `Showing all ${totalCount} RSRP records`;
+      }
+    }
   </script>
 
   {% elif error %}
