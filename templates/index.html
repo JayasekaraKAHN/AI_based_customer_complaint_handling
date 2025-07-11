@@ -196,10 +196,10 @@
               <td><strong>Cell_ID:</strong></td>
               <td>{{ result['SAC'] }}</td>
             </tr>
-            {% if result["Common Cell Location"] %}
-            {% for loc in result["Common Cell Location"] %}
+            {% if result["Common Cell Locations"] %}
+            {% for loc in result["Common Cell Locations"] %}
             <tr>
-              <td>Common Cell Locations</td>
+              <td>Common Cell Location</td>
             </tr>
             <tr>
               <td><strong>Cell Code</strong></td>
@@ -318,9 +318,6 @@
                     <div class="col-md-6">
                       <input type="text" name="cell_name_filter" placeholder="Cell Name..." class="form-control form-control-sm">
                     </div>
-                    <div class="col-md-6">
-                      <input type="text" name="site_id_filter" placeholder="Site ID..." class="form-control form-control-sm">
-                    </div>
                   </div>
                   <div class="row g-2 mb-2">
                     <div class="col-md-3">
@@ -340,8 +337,7 @@
                     <div class="col-md-4">
                       <select name="sort_by" class="form-select form-select-sm">
                         <option value="">Sort by...</option>
-                        <option value="Cell_Name">Cell Name</option>
-                        <option value="Site_ID">Site ID</option>
+                        <option value="Site_ID">Cell name</option>
                         <option value="RSRP Range 1 (>-105dBm) %">RSRP Range 1</option>
                         <option value="RSRP Range 2 (-105~-110dBm) %">RSRP Range 2</option>
                         <option value="RSRP Range 3 (-110~-115dBm) %">RSRP Range 3</option>
@@ -370,8 +366,8 @@
               <thead>
                 <tr>
                   <th>Site Name</th>
-                  <th>Cell Name</th>
                   <th>Site ID</th>
+                  <th>Cell Name</th>
                   <th>RSRP Range 1 (>-105dBm) %</th>
                   <th>RSRP Range 2 (-105~-110dBm) %</th>
                   <th>RSRP Range 3 (-110~-115dBm) %</th>
@@ -435,7 +431,7 @@
     // Line Chart (by network type)
     const networkTraces = ["2G", "3G", "4G", "5G"].map((net) => ({
       x: usage.months,
-      y: usage[net],
+      y: usage[net].map(mb => +(mb / 1024).toFixed(2)),
       name: net,
       mode: "lines+markers",
       type: "scatter",
@@ -444,7 +440,7 @@
     const networkLayout = {
       title: "Monthly Data Volume by Network",
       xaxis: { title: "Month" },
-      yaxis: { title: "Volume (MB)" },
+      yaxis: { title: "Volume (GB)", tickformat: '.2f' },
     };
 
     Plotly.newPlot("monthlyVolumeChart", networkTraces, networkLayout, {
@@ -454,7 +450,7 @@
     // Bar Chart (total usage)
     const totalBarTrace = {
       x: usage.months,
-      y: usage.Total,
+      y: usage.Total.map(mb => +(mb / 1024).toFixed(2)),
       name: "Total Usage",
       type: "bar",
       marker: { color: "#007bff" },
@@ -464,7 +460,7 @@
     const totalLayout = {
       title: "Total Monthly Data Usage",
       xaxis: { title: "Month" },
-      yaxis: { title: "Total Volume (MB)" },
+      yaxis: { title: "Total Volume (GB)", tickformat: '.2f' },
     };
 
     Plotly.newPlot("totalVolumeChart", [totalBarTrace], totalLayout, {
