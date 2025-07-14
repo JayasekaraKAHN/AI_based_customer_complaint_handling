@@ -10,7 +10,6 @@ import os
 import folium
 import calendar
 
-# Update paths to point to the correct directories relative to the new location
 template_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'templates'))
 static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'static'))
 
@@ -18,6 +17,7 @@ app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
 app.secret_key = "admin12345"
 app.permanent_session_lifetime = timedelta(minutes=10)
 
+#auto-detect usage files
 def auto_detect_usage_files(data_directory=None):
     if data_directory is None:
         data_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data_files'))
@@ -44,26 +44,7 @@ def auto_detect_usage_files(data_directory=None):
             
     return usage_files
 
-# File paths - Updated for new directory structure
-data_files_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data_files'))
-REFERENCE_FILE = os.path.join(data_files_dir, "Reference_Data_Cell_Locations_20250403.csv")
-TAC_FILE = os.path.join(data_files_dir, "TACD_UPDATED.csv")
-INPUT_FILE = os.path.join(data_files_dir, "All_2025-4-2_3.txt")
-USAGE_FILES = auto_detect_usage_files() 
-VLRD = pd.read_excel(os.path.join(data_files_dir, 'VLRD_Sample.xlsx'))
-
-# Load reference data
-ref_df = pd.read_csv(REFERENCE_FILE)
-tac_df = pd.read_csv(TAC_FILE, low_memory=False)
-
-# Load ZTE and Huawei RSRP data
-zte_rsrp_df = pd.read_excel(os.path.join(data_files_dir, 'ZTE RSRP.xlsx'))
-huawei_rsrp_df = pd.read_excel(os.path.join(data_files_dir, 'Huawei RSRP.xlsx'))
-
-# Print column names for debugging
-print("ZTE RSRP Columns:", zte_rsrp_df.columns)
-print("Huawei RSRP Columns:", huawei_rsrp_df.columns)
-
+#monthly data usge
 def load_usage_data_with_month():
     df_list = []
     for month_year, file_info in USAGE_FILES.items():
@@ -73,36 +54,20 @@ def load_usage_data_with_month():
         df_list.append(df)
     return pd.concat(df_list, ignore_index=True)
 
+# File paths
+data_files_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data_files'))
+REFERENCE_FILE = os.path.join(data_files_dir, "Reference_Data_Cell_Locations_20250403.csv")
+TAC_FILE = os.path.join(data_files_dir, "TACD_UPDATED.csv")
+INPUT_FILE = os.path.join(data_files_dir, "All_2025-4-2_3.txt")
+USAGE_FILES = auto_detect_usage_files() 
+VLRD = pd.read_excel(os.path.join(data_files_dir, 'VLRD_Sample.xlsx'))
+zte_rsrp_df = pd.read_excel(os.path.join(data_files_dir, 'ZTE RSRP.xlsx'))
+huawei_rsrp_df = pd.read_excel(os.path.join(data_files_dir, 'Huawei RSRP.xlsx'))
 USERTD = load_usage_data_with_month()
 
-
-@app.before_request
-def check_login():
-    session.permanent = True
-    if not session.get("logged_in"):
-        if request.endpoint not in ['login', 'static']:
-            return redirect(url_for('login'))
-
-#login
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form.get("username")
-        password = request.form.get("password")
-        if username == "admin" and password == "admin":
-            session.permanent = True
-            session["logged_in"] = True
-            return redirect(url_for('home'))
-        else:
-            flash("Invalid credentials, please try again.", "error")
-            return render_template('login.html')
-    return render_template('login.html')
-
-#logout
-@app.route('/logout')
-def logout():
-    session.pop("logged_in", None)
-    return redirect(url_for('login'))
+# Load reference data
+ref_df = pd.read_csv(REFERENCE_FILE)
+tac_df = pd.read_csv(TAC_FILE, low_memory=False)
 
 #display user location on map
 def create_location_map(result_data):
@@ -281,6 +246,7 @@ SIM_TYPE_MAPPING = {
 
 latest_result = {}
 
+#MSISDN data retrieval
 def get_msisdn_data(msisdn):
     global latest_result
 
@@ -307,7 +273,6 @@ def get_msisdn_data(msisdn):
                 if imsi_digit in SIM_TYPE_MAPPING:
                     sim_type, connection_type = SIM_TYPE_MAPPING[imsi_digit]
 
-            # Enhanced location lookup with multiple matching strategies
             lac_dec = sac_dec = "Not Found"
             if location.strip():
                 match = re.match(r"(\d+)-(\w+)-([a-fA-F0-9]+)", location)
@@ -316,7 +281,6 @@ def get_msisdn_data(msisdn):
                         lac_dec = int(match.group(2), 16)
                         sac_dec = int(match.group(3), 16)
                         
-                        # Primary lookup: LAC and Cell ID
                         matched_row = ref_df[(ref_df['lac'] == lac_dec) & (ref_df['cellid'] == sac_dec)]
                         
                         if not matched_row.empty:
@@ -328,7 +292,6 @@ def get_msisdn_data(msisdn):
                             region = row['region']
                             district = row['district']
                             
-                            # Additional reference data
                             technology_type = row.get('type', 'Unknown')
                             
                             print(f"Found location: {sitename} ({district}, {region}) - {technology_type}")
@@ -336,7 +299,6 @@ def get_msisdn_data(msisdn):
                         else:
                             alt_match = ref_df[ref_df['lac'] == lac_dec]
                             if not alt_match.empty:
-                                # Use closest match by cell ID
                                 closest_match = alt_match.iloc[0]
                                 sitename = f"{closest_match['sitename']} (Approximate)"
                                 cellcode = closest_match['cellcode']
@@ -385,7 +347,6 @@ def get_msisdn_data(msisdn):
 
             if not usage_records.empty:
                 grouped = usage_records.groupby("MONTH").sum(numeric_only=True)
-                # Sort months chronologically by year and month
                 sorted_months = sorted(USAGE_FILES.keys(), 
                     key=lambda x: (USAGE_FILES[x]['year'], USAGE_FILES[x]['month']))
                 
@@ -408,7 +369,6 @@ def get_msisdn_data(msisdn):
                                  int(grouped.at[month, 'VOLUME_5G_MB']))
                     monthly_usage["Total"].append(total)
 
-            # Get common cell locations from VLRD data
             common_cells = []
             try:
                 if not VLRD.empty:
@@ -428,13 +388,11 @@ def get_msisdn_data(msisdn):
                             }
                             
                             if cell_data['CELL_CODE'] != 'Unknown':
-                                # Get coordinates from reference data
                                 ref_match = ref_df[ref_df['cellcode'] == cell_data['CELL_CODE']]
                                 if not ref_match.empty:
                                     cell_data['LON'] = ref_match.iloc[0]['lon']
                                     cell_data['LAT'] = ref_match.iloc[0]['lat']
                                 
-                                # Get RSRP data for this cell's Site ID
                                 site_id = str(cell_data['CELL_CODE'])[:6]
                                 try:
                                     rsrp_data_for_site = fetch_rsrp_data_by_site_id(site_id)
@@ -449,7 +407,6 @@ def get_msisdn_data(msisdn):
                 print(f"Error processing VLRD data: {e}")
                 common_cells = []
 
-            # Get RSRP data for the current cell code
             rsrp_data = []
             if cellcode and cellcode != "Not Found":
                 try:
@@ -494,6 +451,299 @@ def get_msisdn_data(msisdn):
 
     return {"error": "MSISDN not found"}
 
+def fetch_rsrp_data_directly(cell_code):
+    global zte_rsrp_df, huawei_rsrp_df, ref_df
+
+    site_id = str(cell_code)[:6] 
+
+    zte_filtered = zte_rsrp_df[zte_rsrp_df['Site_ID'].astype(str) == site_id]
+    huawei_filtered = huawei_rsrp_df[huawei_rsrp_df['Site_ID'].astype(str) == site_id]
+
+    if zte_filtered.empty and huawei_filtered.empty:
+        return None
+
+    site_info = []
+    
+    # Process ZTE data
+    for _, rsrp_row in zte_filtered.iterrows():
+        site_info.append({
+            'Site_Name': rsrp_row['Site Name'],
+            'Cell_Name': rsrp_row['Cell Name'],
+            'Site_ID': rsrp_row['Site_ID'],
+            'RSRP Range 1 (>-105dBm) %': round(float(rsrp_row['RSRP Range 1 (>-105dBm) %']) * 100, 2),
+            'RSRP Range 2 (-105~-110dBm) %': round(float(rsrp_row['RSRP Range 2 (-105~-110dBm) %']) * 100, 2),
+            'RSRP Range 3 (-110~-115dBm) %': round(float(rsrp_row['RSRP Range 3 (-110~-115dBm) %']) * 100, 2),
+            'RSRP < -115dBm %': round(float(rsrp_row['RSRP < -115dBm']) * 100, 2)
+        })
+    
+    # Process Huawei data
+    for _, rsrp_row in huawei_filtered.iterrows():
+        site_info.append({
+            'Site_Name': rsrp_row['Site Name'],
+            'Cell_Name': rsrp_row['Cell Name'],
+            'Site_ID': rsrp_row['Site_ID'],
+            'RSRP Range 1 (>-105dBm) %': round(float(rsrp_row['RSRP Range 1 (>-105dBm) %']), 2),
+            'RSRP Range 2 (-105~-110dBm) %': round(float(rsrp_row['RSRP Range 2 (-105~-110dBm) %']), 2),
+            'RSRP Range 3 (-110~-115dBm) %': round(float(rsrp_row['RSRP Range 3 (-110~-115dBm) %']), 2),
+            'RSRP < -115dBm %': round(float(rsrp_row['RSRP < -115dBm']), 2)
+        })
+
+    return site_info
+
+def filter_and_sort_rsrp_data(rsrp_data, filters=None, sort_by=None, sort_order='asc'):
+    if not rsrp_data:
+        return []
+    
+    filtered_data = rsrp_data.copy()
+    
+    if filters:
+        for key, value in filters.items():
+            if value and str(value).strip():
+                filtered_data = apply_type_sensitive_filter(filtered_data, key, value)
+    
+    # Apply sorting
+    if sort_by and sort_by in ['Cell_Name', 'Site_ID', 'Site_Name', 'RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %',
+                               'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
+        try:
+            is_numeric = sort_by in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %',
+                                   'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']
+            
+            if is_numeric:
+                filtered_data.sort(
+                    key=lambda x: float(x.get(sort_by, 0)),
+                    reverse=(sort_order == 'desc')
+                )
+            else:
+                filtered_data.sort(
+                    key=lambda x: str(x.get(sort_by, '')).lower(),
+                    reverse=(sort_order == 'desc')
+                )
+        except (ValueError, TypeError):
+            pass 
+    
+    return filtered_data
+
+def apply_type_sensitive_filter(data, filter_key, filter_value):
+    value_str = str(filter_value).strip()
+    
+    if filter_key in ['Cell_Name', 'Site_ID', 'Site_Name']:
+        return apply_text_filter(data, filter_key, value_str)
+    
+    elif filter_key.endswith('_min'):
+        return apply_numeric_min_filter(data, filter_key, value_str)
+    elif filter_key.endswith('_max'):
+        return apply_numeric_max_filter(data, filter_key, value_str)
+    
+    else:
+        return apply_auto_detect_filter(data, filter_key, value_str)
+
+def apply_text_filter(data, column, value):
+
+    if value.startswith('='):
+        target = value[1:].lower()
+        return [
+            row for row in data 
+            if str(row.get(column, '')).lower() == target
+        ]
+    
+    elif value.startswith('!='):
+        target = value[2:].lower()
+        return [
+            row for row in data 
+            if str(row.get(column, '')).lower() != target
+        ]
+    
+    elif '*' in value or '%' in value:
+        return apply_wildcard_filter(data, column, value)
+    
+    elif value.startswith('/') and value.endswith('/') and len(value) > 2:
+        return apply_regex_filter(data, column, value[1:-1])
+    
+    else:
+        return [
+            row for row in data 
+            if value.lower() in str(row.get(column, '')).lower()
+        ]
+
+def apply_numeric_min_filter(data, filter_key, value):
+    rsrp_column = filter_key.replace('_min', '')
+    if rsrp_column in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %', 
+                      'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
+        try:
+            min_value = float(value)
+            return [
+                row for row in data 
+                if float(row.get(rsrp_column, 0)) >= min_value
+            ]
+        except (ValueError, TypeError):
+            return data
+    return data
+
+def apply_numeric_max_filter(data, filter_key, value):
+    rsrp_column = filter_key.replace('_max', '')
+    if rsrp_column in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %', 
+                      'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
+        try:
+            max_value = float(value)
+            return [
+                row for row in data 
+                if float(row.get(rsrp_column, 0)) <= max_value
+            ]
+        except (ValueError, TypeError):
+            return data
+    return data
+
+def apply_auto_detect_filter(data, column, value):
+    value = value.strip()
+    
+    if ',' in value:
+        conditions = [cond.strip() for cond in value.split(',')]
+        filtered_data = data
+        for condition in conditions:
+            if condition:
+                filtered_data = apply_single_auto_filter(filtered_data, column, condition)
+        return filtered_data
+    
+    return apply_single_auto_filter(data, column, value)
+
+def apply_single_auto_filter(data, column, value):
+
+    if value.startswith('>='):
+        return apply_operator_filter(data, column, value[2:], '>=')
+    elif value.startswith('<='):
+        return apply_operator_filter(data, column, value[2:], '<=')
+    elif value.startswith('>'):
+        return apply_operator_filter(data, column, value[1:], '>')
+    elif value.startswith('<'):
+        return apply_operator_filter(data, column, value[1:], '<')
+    
+    elif value.startswith('='):
+        return apply_operator_filter(data, column, value[1:], '=')
+
+    elif value.startswith('!='):
+        return apply_operator_filter(data, column, value[2:], '!=')
+    
+    elif '-' in value and not value.startswith('-') and len(value.split('-')) == 2:
+        parts = value.split('-')
+        try:
+            min_val, max_val = float(parts[0].strip()), float(parts[1].strip())
+            if min_val <= max_val:
+                return apply_range_filter(data, column, min_val, max_val)
+        except (ValueError, TypeError):
+            pass
+        return apply_text_filter(data, column, value)
+    
+    elif '*' in value or '%' in value:
+        return apply_wildcard_filter(data, column, value)
+    
+    elif value.startswith('/') and value.endswith('/') and len(value) > 2:
+        return apply_regex_filter(data, column, value[1:-1])
+    
+    else:
+        return apply_smart_match_filter(data, column, value)
+
+def apply_operator_filter(data, column, value_str, operator):
+    try:
+        threshold = float(value_str.strip())
+        return [
+            row for row in data
+            if compare_values(row.get(column), operator, threshold)
+        ]
+    except (ValueError, TypeError):
+        if operator in ['=', '!=']:
+            target = value_str.strip().lower()
+            if operator == '=':
+                return [
+                    row for row in data
+                    if str(row.get(column, '')).lower() == target
+                ]
+            else:  # !=
+                return [
+                    row for row in data
+                    if str(row.get(column, '')).lower() != target
+                ]
+        return apply_text_filter(data, column, f"{operator}{value_str}")
+
+def apply_range_filter(data, column, min_val, max_val):
+    return [
+        row for row in data
+        if min_val <= float(row.get(column, 0)) <= max_val
+    ]
+
+def apply_wildcard_filter(data, column, pattern):
+    import re
+    regex_pattern = pattern.replace('*', '.*').replace('%', '.*')
+    try:
+        compiled_pattern = re.compile(regex_pattern, re.IGNORECASE)
+        return [
+            row for row in data
+            if compiled_pattern.search(str(row.get(column, '')))
+        ]
+    except re.error:
+        return apply_text_filter(data, column, pattern)
+
+def apply_regex_filter(data, column, pattern):
+    import re
+    try:
+        compiled_pattern = re.compile(pattern, re.IGNORECASE)
+        return [
+            row for row in data
+            if compiled_pattern.search(str(row.get(column, '')))
+        ]
+    except re.error:
+        return []
+
+def apply_smart_match_filter(data, column, value):
+
+    sample_values = [row.get(column) for row in data[:10] if row.get(column)]
+    is_numeric_column = all(
+        isinstance(val, (int, float)) or 
+        (isinstance(val, str) and val.replace('.', '').replace('-', '').isdigit())
+        for val in sample_values if val
+    )
+    
+    if is_numeric_column:
+        try:
+            target_value = float(value)
+            tolerance = 0.01
+            return [
+                row for row in data 
+                if abs(float(row.get(column, 0)) - target_value) <= tolerance
+            ]
+        except (ValueError, TypeError):
+            pass
+    
+    return apply_text_filter(data, column, value)
+
+def compare_values(data_value, operator, threshold):
+    """Enhanced comparison function with better type handling"""
+    try:
+        data_val = float(data_value)
+        if operator == '>':
+            return data_val > threshold
+        elif operator == '>=':
+            return data_val >= threshold
+        elif operator == '<':
+            return data_val < threshold
+        elif operator == '<=':
+            return data_val <= threshold
+        elif operator == '=':
+            return abs(data_val - threshold) <= 0.01 
+        elif operator == '!=':
+            return abs(data_val - threshold) > 0.01
+        return False
+    except (ValueError, TypeError):
+        if operator in ['=', '!=']:
+            data_str = str(data_value).lower()
+            threshold_str = str(threshold).lower()
+            if operator == '=':
+                return data_str == threshold_str
+            else:
+                return data_str != threshold_str
+        return False
+    
+
+#route 
 @app.route('/')
 def home():
     return render_template('home.html')
@@ -501,6 +751,34 @@ def home():
 @app.route('/index')
 def index():
     return render_template('index.html')
+
+@app.before_request
+def check_login():
+    session.permanent = True
+    if not session.get("logged_in"):
+        if request.endpoint not in ['login', 'static']:
+            return redirect(url_for('login'))
+
+#login
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get("username")
+        password = request.form.get("password")
+        if username == "admin" and password == "admin":
+            session.permanent = True
+            session["logged_in"] = True
+            return redirect(url_for('home'))
+        else:
+            flash("Invalid credentials, please try again.", "error")
+            return render_template('login.html')
+    return render_template('login.html')
+
+#logout
+@app.route('/logout')
+def logout():
+    session.pop("logged_in", None)
+    return redirect(url_for('login'))
 
 @app.route('/map/<msisdn>')
 def show_map(msisdn):  
@@ -522,7 +800,6 @@ def show_map(msisdn):
     else:
         map_obj = create_location_map(result)
 
-    # Ensure static directory exists (relative to app root)
     static_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'static'))
     if not os.path.exists(static_path):
         os.makedirs(static_path)
@@ -544,7 +821,6 @@ def search():
     try:
         map_obj = create_location_map(result)
         
-        # Ensure static directory exists (relative to app root)
         static_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'static'))
         if not os.path.exists(static_path):
             os.makedirs(static_path)
@@ -614,334 +890,7 @@ def download_user_count():
         download_name=filename
     )
 
-def fetch_rsrp_data_directly(cell_code):
-    global zte_rsrp_df, huawei_rsrp_df, ref_df
 
-    site_id = str(cell_code)[:6] 
-
-    zte_filtered = zte_rsrp_df[zte_rsrp_df['Site_ID'].astype(str) == site_id]
-    huawei_filtered = huawei_rsrp_df[huawei_rsrp_df['Site_ID'].astype(str) == site_id]
-
-    if zte_filtered.empty and huawei_filtered.empty:
-        return None
-
-    site_info = []
-    
-    # Process ZTE data
-    for _, rsrp_row in zte_filtered.iterrows():
-        site_info.append({
-            'Site_Name': rsrp_row['Site Name'],
-            'Cell_Name': rsrp_row['Cell Name'],
-            'Site_ID': rsrp_row['Site_ID'],
-            'RSRP Range 1 (>-105dBm) %': round(float(rsrp_row['RSRP Range 1 (>-105dBm) %']) * 100, 2),
-            'RSRP Range 2 (-105~-110dBm) %': round(float(rsrp_row['RSRP Range 2 (-105~-110dBm) %']) * 100, 2),
-            'RSRP Range 3 (-110~-115dBm) %': round(float(rsrp_row['RSRP Range 3 (-110~-115dBm) %']) * 100, 2),
-            'RSRP < -115dBm %': round(float(rsrp_row['RSRP < -115dBm']) * 100, 2)
-        })
-    
-    # Process Huawei data
-    for _, rsrp_row in huawei_filtered.iterrows():
-        site_info.append({
-            'Site_Name': rsrp_row['Site Name'],
-            'Cell_Name': rsrp_row['Cell Name'],
-            'Site_ID': rsrp_row['Site_ID'],
-            'RSRP Range 1 (>-105dBm) %': round(float(rsrp_row['RSRP Range 1 (>-105dBm) %']), 2),
-            'RSRP Range 2 (-105~-110dBm) %': round(float(rsrp_row['RSRP Range 2 (-105~-110dBm) %']), 2),
-            'RSRP Range 3 (-110~-115dBm) %': round(float(rsrp_row['RSRP Range 3 (-110~-115dBm) %']), 2),
-            'RSRP < -115dBm %': round(float(rsrp_row['RSRP < -115dBm']), 2)
-        })
-
-    return site_info
-
-def filter_and_sort_rsrp_data(rsrp_data, filters=None, sort_by=None, sort_order='asc'):
-    """Enhanced filtering with smart type-sensitive logic"""
-    if not rsrp_data:
-        return []
-    
-    filtered_data = rsrp_data.copy()
-    
-    if filters:
-        for key, value in filters.items():
-            if value and str(value).strip():
-                filtered_data = apply_type_sensitive_filter(filtered_data, key, value)
-    
-    # Apply sorting
-    if sort_by and sort_by in ['Cell_Name', 'Site_ID', 'Site_Name', 'RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %',
-                               'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
-        try:
-            is_numeric = sort_by in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %',
-                                   'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']
-            
-            if is_numeric:
-                filtered_data.sort(
-                    key=lambda x: float(x.get(sort_by, 0)),
-                    reverse=(sort_order == 'desc')
-                )
-            else:
-                filtered_data.sort(
-                    key=lambda x: str(x.get(sort_by, '')).lower(),
-                    reverse=(sort_order == 'desc')
-                )
-        except (ValueError, TypeError):
-            pass 
-    
-    return filtered_data
-
-def apply_type_sensitive_filter(data, filter_key, filter_value):
-    """Apply type-sensitive filtering based on the filter key and value"""
-    value_str = str(filter_value).strip()
-    
-    # Text-based filters for string columns
-    if filter_key in ['Cell_Name', 'Site_ID', 'Site_Name']:
-        return apply_text_filter(data, filter_key, value_str)
-    
-    # Range filters for numeric columns
-    elif filter_key.endswith('_min'):
-        return apply_numeric_min_filter(data, filter_key, value_str)
-    elif filter_key.endswith('_max'):
-        return apply_numeric_max_filter(data, filter_key, value_str)
-    
-    # Auto-detect filter type for direct column filters
-    else:
-        return apply_auto_detect_filter(data, filter_key, value_str)
-
-def apply_text_filter(data, column, value):
-    """Apply enhanced text-based filtering with smart pattern detection"""
-    # Handle different text filter patterns
-    
-    # Exact match
-    if value.startswith('='):
-        target = value[1:].lower()
-        return [
-            row for row in data 
-            if str(row.get(column, '')).lower() == target
-        ]
-    
-    # Not equal
-    elif value.startswith('!='):
-        target = value[2:].lower()
-        return [
-            row for row in data 
-            if str(row.get(column, '')).lower() != target
-        ]
-    
-    # Wildcard patterns (* or %)
-    elif '*' in value or '%' in value:
-        return apply_wildcard_filter(data, column, value)
-    
-    # Regular expression (wrapped in /)
-    elif value.startswith('/') and value.endswith('/') and len(value) > 2:
-        return apply_regex_filter(data, column, value[1:-1])
-    
-    # Default: contains (case-insensitive)
-    else:
-        return [
-            row for row in data 
-            if value.lower() in str(row.get(column, '')).lower()
-        ]
-
-def apply_numeric_min_filter(data, filter_key, value):
-    """Apply numeric minimum filter"""
-    rsrp_column = filter_key.replace('_min', '')
-    if rsrp_column in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %', 
-                      'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
-        try:
-            min_value = float(value)
-            return [
-                row for row in data 
-                if float(row.get(rsrp_column, 0)) >= min_value
-            ]
-        except (ValueError, TypeError):
-            return data
-    return data
-
-def apply_numeric_max_filter(data, filter_key, value):
-    """Apply numeric maximum filter"""
-    rsrp_column = filter_key.replace('_max', '')
-    if rsrp_column in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %', 
-                      'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
-        try:
-            max_value = float(value)
-            return [
-                row for row in data 
-                if float(row.get(rsrp_column, 0)) <= max_value
-            ]
-        except (ValueError, TypeError):
-            return data
-    return data
-
-def apply_auto_detect_filter(data, column, value):
-    """Enhanced auto-detect filter type based on value pattern"""
-    value = value.strip()
-    
-    # Handle multiple conditions separated by commas
-    if ',' in value:
-        conditions = [cond.strip() for cond in value.split(',')]
-        filtered_data = data
-        for condition in conditions:
-            if condition:
-                filtered_data = apply_single_auto_filter(filtered_data, column, condition)
-        return filtered_data
-    
-    return apply_single_auto_filter(data, column, value)
-
-def apply_single_auto_filter(data, column, value):
-    """Apply a single auto-detected filter condition"""
-    # Handle different operators with better regex-like matching
-    
-    # Range operators (>=, <=, >, <)
-    if value.startswith('>='):
-        return apply_operator_filter(data, column, value[2:], '>=')
-    elif value.startswith('<='):
-        return apply_operator_filter(data, column, value[2:], '<=')
-    elif value.startswith('>'):
-        return apply_operator_filter(data, column, value[1:], '>')
-    elif value.startswith('<'):
-        return apply_operator_filter(data, column, value[1:], '<')
-    
-    # Equals operator
-    elif value.startswith('='):
-        return apply_operator_filter(data, column, value[1:], '=')
-    
-    # Not equals operator
-    elif value.startswith('!='):
-        return apply_operator_filter(data, column, value[2:], '!=')
-    
-    # Range filter with dash (e.g., "10-20", "5.5-15.2")
-    elif '-' in value and not value.startswith('-') and len(value.split('-')) == 2:
-        parts = value.split('-')
-        try:
-            min_val, max_val = float(parts[0].strip()), float(parts[1].strip())
-            if min_val <= max_val:  # Valid range
-                return apply_range_filter(data, column, min_val, max_val)
-        except (ValueError, TypeError):
-            pass
-        # If range parsing fails, fall back to text filter
-        return apply_text_filter(data, column, value)
-    
-    # Contains filter with wildcards (* or %)
-    elif '*' in value or '%' in value:
-        return apply_wildcard_filter(data, column, value)
-    
-    # Regular expression filter (starts with / and ends with /)
-    elif value.startswith('/') and value.endswith('/') and len(value) > 2:
-        return apply_regex_filter(data, column, value[1:-1])
-    
-    # Numeric exact match or text contains
-    else:
-        return apply_smart_match_filter(data, column, value)
-
-def apply_operator_filter(data, column, value_str, operator):
-    """Apply operator-based filter (>, <, >=, <=, =, !=)"""
-    try:
-        threshold = float(value_str.strip())
-        return [
-            row for row in data
-            if compare_values(row.get(column), operator, threshold)
-        ]
-    except (ValueError, TypeError):
-        # If not numeric, try text comparison for = and !=
-        if operator in ['=', '!=']:
-            target = value_str.strip().lower()
-            if operator == '=':
-                return [
-                    row for row in data
-                    if str(row.get(column, '')).lower() == target
-                ]
-            else:  # !=
-                return [
-                    row for row in data
-                    if str(row.get(column, '')).lower() != target
-                ]
-        # For other operators, fall back to text filter
-        return apply_text_filter(data, column, f"{operator}{value_str}")
-
-def apply_range_filter(data, column, min_val, max_val):
-    """Apply range filter for numeric values"""
-    return [
-        row for row in data
-        if min_val <= float(row.get(column, 0)) <= max_val
-    ]
-
-def apply_wildcard_filter(data, column, pattern):
-    """Apply wildcard filter (* or % as wildcards)"""
-    import re
-    # Convert wildcard pattern to regex
-    regex_pattern = pattern.replace('*', '.*').replace('%', '.*')
-    try:
-        compiled_pattern = re.compile(regex_pattern, re.IGNORECASE)
-        return [
-            row for row in data
-            if compiled_pattern.search(str(row.get(column, '')))
-        ]
-    except re.error:
-        # If regex is invalid, fall back to text filter
-        return apply_text_filter(data, column, pattern)
-
-def apply_regex_filter(data, column, pattern):
-    """Apply regular expression filter"""
-    import re
-    try:
-        compiled_pattern = re.compile(pattern, re.IGNORECASE)
-        return [
-            row for row in data
-            if compiled_pattern.search(str(row.get(column, '')))
-        ]
-    except re.error:
-        # If regex is invalid, return empty result
-        return []
-
-def apply_smart_match_filter(data, column, value):
-    """Smart matching: try numeric exact match first, then text contains"""
-    # First try to detect if this column typically contains numeric data
-    sample_values = [row.get(column) for row in data[:10] if row.get(column)]
-    is_numeric_column = all(
-        isinstance(val, (int, float)) or 
-        (isinstance(val, str) and val.replace('.', '').replace('-', '').isdigit())
-        for val in sample_values if val
-    )
-    
-    if is_numeric_column:
-        try:
-            target_value = float(value)
-            tolerance = 0.01  # Allow small tolerance for floating point comparison
-            return [
-                row for row in data 
-                if abs(float(row.get(column, 0)) - target_value) <= tolerance
-            ]
-        except (ValueError, TypeError):
-            pass
-    
-    # Fall back to text contains filter
-    return apply_text_filter(data, column, value)
-
-def compare_values(data_value, operator, threshold):
-    """Enhanced comparison function with better type handling"""
-    try:
-        data_val = float(data_value)
-        if operator == '>':
-            return data_val > threshold
-        elif operator == '>=':
-            return data_val >= threshold
-        elif operator == '<':
-            return data_val < threshold
-        elif operator == '<=':
-            return data_val <= threshold
-        elif operator == '=':
-            return abs(data_val - threshold) <= 0.01  # Small tolerance for floats
-        elif operator == '!=':
-            return abs(data_val - threshold) > 0.01
-        return False
-    except (ValueError, TypeError):
-        # For non-numeric data, handle text comparison for = and !=
-        if operator in ['=', '!=']:
-            data_str = str(data_value).lower()
-            threshold_str = str(threshold).lower()
-            if operator == '=':
-                return data_str == threshold_str
-            else:  # !=
-                return data_str != threshold_str
-        return False
 @app.route('/rsrp_ranges_direct/<cell_code>', methods=['GET', 'POST'])
 def display_rsrp_ranges_direct(cell_code):
     rsrp_data = fetch_rsrp_data_directly(cell_code)
@@ -999,7 +948,6 @@ def get_rsrp_by_site_id(site_id):
 
 @app.route('/filter_rsrp_data', methods=['POST'])
 def filter_rsrp_data():
-    """Handle RSRP filtering requests from the main index page"""
     msisdn = request.form.get('msisdn')
     if not msisdn:
         return jsonify({'error': 'MSISDN required'}), 400
@@ -1016,20 +964,14 @@ def filter_rsrp_data():
     if not rsrp_data:
         return jsonify({'error': 'No RSRP data found'}), 404
     
-    # Enhanced filters with smart filtering support
     filters = {
-        # Text filters
         'Cell_Name': request.form.get('cell_name_filter', ''),
         'Site_ID': request.form.get('site_id_filter', ''),
         'Site_Name': request.form.get('site_name_filter', ''),
-        
-        # Smart direct filters (auto-detect type)
         'RSRP Range 1 (>-105dBm) %': request.form.get('rsrp_range1_direct', ''),
         'RSRP Range 2 (-105~-110dBm) %': request.form.get('rsrp_range2_direct', ''),
         'RSRP Range 3 (-110~-115dBm) %': request.form.get('rsrp_range3_direct', ''),
         'RSRP < -115dBm %': request.form.get('rsrp_range4_direct', ''),
-        
-        # Traditional min/max filters
         'RSRP Range 1 (>-105dBm) %_min': request.form.get('rsrp_range1_min', ''),
         'RSRP Range 1 (>-105dBm) %_max': request.form.get('rsrp_range1_max', ''),
         'RSRP Range 2 (-105~-110dBm) %_min': request.form.get('rsrp_range2_min', ''),
@@ -1052,39 +994,30 @@ def filter_rsrp_data():
 
 @app.route('/filter_common_location_rsrp_data', methods=['POST'])
 def filter_common_location_rsrp_data():
-    """Handle RSRP filtering requests for common locations with smart filtering"""
     msisdn = request.form.get('msisdn')
-    cell_code = request.form.get('cell_code')  # Cell code for the common location
+    cell_code = request.form.get('cell_code') 
     
     if not msisdn:
         return jsonify({'error': 'MSISDN required'}), 400
     
     if not cell_code:
         return jsonify({'error': 'Cell code required'}), 400
-    
-    # Extract site ID from cell code (first 6 characters)
+
     site_id = str(cell_code)[:6]
     
-    # Get RSRP data directly for the specific Site ID
     site_rsrp_data = fetch_rsrp_data_by_site_id(site_id)
     
     if not site_rsrp_data:
         return jsonify({'error': f'No RSRP data found for Cell Code {cell_code}'}), 404
-    
-    # Enhanced filters with smart filtering support
+
     filters = {
-        # Text filters
         'Cell_Name': request.form.get('cell_name_filter', ''),
         'Site_ID': request.form.get('site_id_filter', ''),
         'Site_Name': request.form.get('site_name_filter', ''),
-        
-        # Smart direct filters (auto-detect type)
         'RSRP Range 1 (>-105dBm) %': request.form.get('rsrp_range1_direct', ''),
         'RSRP Range 2 (-105~-110dBm) %': request.form.get('rsrp_range2_direct', ''),
         'RSRP Range 3 (-110~-115dBm) %': request.form.get('rsrp_range3_direct', ''),
         'RSRP < -115dBm %': request.form.get('rsrp_range4_direct', ''),
-        
-        # Traditional min/max filters
         'RSRP Range 1 (>-105dBm) %_min': request.form.get('rsrp_range1_min', ''),
         'RSRP Range 1 (>-105dBm) %_max': request.form.get('rsrp_range1_max', ''),
         'RSRP Range 2 (-105~-110dBm) %_min': request.form.get('rsrp_range2_min', ''),
@@ -1097,7 +1030,6 @@ def filter_common_location_rsrp_data():
     sort_by = request.form.get('sort_by', '')
     sort_order = request.form.get('sort_order', 'asc')
     
-    # Use the enhanced filtering function
     filtered_data = filter_and_sort_rsrp_data(site_rsrp_data, filters, sort_by, sort_order)
     
     return jsonify({
@@ -1109,15 +1041,10 @@ def filter_common_location_rsrp_data():
     })
 
 def fetch_rsrp_data_by_site_id(site_id):
-    """
-    Fetch RSRP data for a specific Site ID from both ZTE and Huawei datasets
-    """
     global zte_rsrp_df, huawei_rsrp_df
     
-    # Ensure site_id is a string and get first 6 characters
     site_id_str = str(site_id)[:6]
     
-    # Filter both datasets by Site_ID
     zte_filtered = zte_rsrp_df[zte_rsrp_df['Site_ID'].astype(str) == site_id_str]
     huawei_filtered = huawei_rsrp_df[huawei_rsrp_df['Site_ID'].astype(str) == site_id_str]
     
