@@ -49,6 +49,28 @@
       background-color: #f5f5f5;
     }
 
+    /* Simple Table Styling */
+    .table th input.form-control-sm {
+      font-size: 0.75rem;
+      padding: 4px 6px;
+      height: 28px;
+    }
+
+    /* RSRP Table Header Styling */
+    .table thead th {
+      background-color: #6c757d;
+      color: white;
+      text-align: center;
+      vertical-align: middle;
+      font-weight: 600;
+    }
+
+    .table thead th div {
+      text-align: center;
+    }
+
+
+
     /* Range Filter Styling */
     .range-filter-group {
       border: 1px solid #e9ecef;
@@ -68,35 +90,11 @@
       margin-top: 8px;
     }
 
-    /* Table header filter styling */
-    #rsrpTable th {
-      vertical-align: top;
-      padding: 12px 8px;
-      min-width: 140px;
-    }
-
-    #rsrpTable th input.form-control-sm {
-      font-size: 0.75rem;
-      padding: 2px 6px;
-      height: auto;
-    }
-
-    #rsrpTable th .row {
-      margin: 0;
-    }
-
-    #rsrpTable th .col-6 {
-      padding: 0 2px;
-    }
-
-    /* Common Location RSRP Table Styling */
-    .common-rsrp-filter-form {
-      font-size: 0.9rem;
-    }
-
-    .common-rsrp-filter-form .form-control-sm,
-    .common-rsrp-filter-form .form-select-sm {
-      font-size: 0.8rem;
+    /* Simple responsive adjustments */
+    @media (max-width: 768px) {
+      .table {
+        font-size: 0.75rem;
+      }
     }
 
     #commonRsrpTable1 th,
@@ -397,10 +395,12 @@
                   <div class="row g-2 mb-2">
                     <div class="col-md-2">
                       <input type="text" name="cell_name_filter" placeholder="Filter by Cell Name..."
-                        class="form-control form-control-sm">
+                        class="form-control form-control-sm"
+                        oninput="debounceRsrpFilter()"
+                        onkeyup="debounceRsrpFilter()">
                     </div>
                     <div class="col-md-3">
-                      <select name="sort_by" class="form-select form-select-sm">
+                      <select name="sort_by" class="form-select form-select-sm" onchange="debounceRsrpFilter()">
                         <option value="">Sort by...</option>
                         <option value="Cell_Name">Cell Name</option>
                         <option value="Site_ID">Site ID</option>
@@ -412,7 +412,7 @@
                       </select>
                     </div>
                     <div class="col-md-2">
-                      <select name="sort_order" class="form-select form-select-sm">
+                      <select name="sort_order" class="form-select form-select-sm" onchange="debounceRsrpFilter()">
                         <option value="asc">Ascending</option>
                         <option value="desc">Descending</option>
                       </select>
@@ -443,11 +443,13 @@
                       <div class="row g-1">
                         <div class="col-6">
                           <input type="number" name="rsrp_range1_min" placeholder="Min %" step="0.01"
-                            class="form-control form-control-sm" form="rsrpFilterForm">
+                            class="form-control form-control-sm" form="rsrpFilterForm"
+                            oninput="debounceRsrpFilter()">
                         </div>
                         <div class="col-6">
                           <input type="number" name="rsrp_range1_max" placeholder="Max %" step="0.01"
-                            class="form-control form-control-sm" form="rsrpFilterForm">
+                            class="form-control form-control-sm" form="rsrpFilterForm"
+                            oninput="debounceRsrpFilter()">
                         </div>
                       </div>
                     </div>
@@ -458,11 +460,13 @@
                       <div class="row g-1">
                         <div class="col-6">
                           <input type="number" name="rsrp_range2_min" placeholder="Min %" step="0.01"
-                            class="form-control form-control-sm" form="rsrpFilterForm">
+                            class="form-control form-control-sm" form="rsrpFilterForm"
+                            oninput="debounceRsrpFilter()">
                         </div>
                         <div class="col-6">
                           <input type="number" name="rsrp_range2_max" placeholder="Max %" step="0.01"
-                            class="form-control form-control-sm" form="rsrpFilterForm">
+                            class="form-control form-control-sm" form="rsrpFilterForm"
+                            oninput="debounceRsrpFilter()">
                         </div>
                       </div>
                     </div>
@@ -473,29 +477,33 @@
                       <div class="row g-1">
                         <div class="col-6">
                           <input type="number" name="rsrp_range3_min" placeholder="Min %" step="0.01"
-                            class="form-control form-control-sm" form="rsrpFilterForm">
+                            class="form-control form-control-sm" form="rsrpFilterForm"
+                            oninput="debounceRsrpFilter()">
                         </div>
                         <div class="col-6">
                           <input type="number" name="rsrp_range3_max" placeholder="Max %" step="0.01"
-                            class="form-control form-control-sm" form="rsrpFilterForm">
+                            class="form-control form-control-sm" form="rsrpFilterForm"
+                            oninput="debounceRsrpFilter()">
                         </div>
                       </div>
                     </div>
                   </th>
                   <th>
                     <div class="text-center">RSRP < -115dBm %</div>
-                        <div class="mt-2">
-                          <div class="row g-1">
-                            <div class="col-6">
-                              <input type="number" name="rsrp_range4_min" placeholder="Min %" step="0.01"
-                                class="form-control form-control-sm" form="rsrpFilterForm">
-                            </div>
-                            <div class="col-6">
-                              <input type="number" name="rsrp_range4_max" placeholder="Max %" step="0.01"
-                                class="form-control form-control-sm" form="rsrpFilterForm">
-                            </div>
-                          </div>
+                    <div class="mt-2">
+                      <div class="row g-1">
+                        <div class="col-6">
+                          <input type="number" name="rsrp_range4_min" placeholder="Min %" step="0.01"
+                            class="form-control form-control-sm" form="rsrpFilterForm"
+                            oninput="debounceRsrpFilter()">
                         </div>
+                        <div class="col-6">
+                          <input type="number" name="rsrp_range4_max" placeholder="Max %" step="0.01"
+                            class="form-control form-control-sm" form="rsrpFilterForm"
+                            oninput="debounceRsrpFilter()">
+                        </div>
+                      </div>
+                    </div>
                   </th>
                 </tr>
               </thead>
@@ -519,12 +527,12 @@
                 {% set site_name_row_index = [0] %}
                 {% for site_id, site_id_rows in site_id_groups.items() %}
                 {% for row in site_id_rows %}
-                <tr class="rsrp-row">
+                <tr>
                   {% if site_name_row_index[0] == 0 %}
-                  <td rowspan="{{ total_site_name_rows }}" class="rsrp-site-cell">{{ site_name }}</td>
+                  <td rowspan="{{ total_site_name_rows }}">{{ site_name }}</td>
                   {% endif %}
                   {% if loop.index == 1 %}
-                  <td rowspan="{{ site_id_rows|length }}" class="rsrp-site-id-cell">{{ site_id }}</td>
+                  <td rowspan="{{ site_id_rows|length }}">{{ site_id }}</td>
                   {% endif %}
                   <td>{{ row['Cell_Name'] }}</td>
                   <td>{{ row['RSRP Range 1 (>-105dBm) %'] }}%</td>
@@ -566,10 +574,12 @@
                       <div class="row g-2 mb-2">
                         <div class="col-md-2">
                           <input type="text" name="cell_name_filter" placeholder="Filter by Cell Name..."
-                            class="form-control form-control-sm">
+                            class="form-control form-control-sm"
+                            oninput="debounceCommonLocationRsrpFilter(this)"
+                            onkeyup="debounceCommonLocationRsrpFilter(this)">
                         </div>
                         <div class="col-md-3">
-                          <select name="sort_by" class="form-select form-select-sm">
+                          <select name="sort_by" class="form-select form-select-sm" onchange="debounceCommonLocationRsrpFilter(this)">
                             <option value="">Sort by...</option>
                             <option value="Cell_Name">Cell Name</option>
                             <option value="Site_ID">Site ID</option>
@@ -581,7 +591,7 @@
                           </select>
                         </div>
                         <div class="col-md-2">
-                          <select name="sort_order" class="form-select form-select-sm">
+                          <select name="sort_order" class="form-select form-select-sm" onchange="debounceCommonLocationRsrpFilter(this)">
                             <option value="asc">Ascending</option>
                             <option value="desc">Descending</option>
                           </select>
@@ -610,11 +620,13 @@
                           <div class="row g-1">
                             <div class="col-6">
                               <input type="number" name="rsrp_range1_min" placeholder="Min %" step="0.01"
-                                class="form-control form-control-sm" data-location="{{ loop.index }}">
+                                class="form-control form-control-sm" data-location="{{ loop.index }}"
+                                oninput="debounceCommonLocationRsrpFilterByInput(this)">
                             </div>
                             <div class="col-6">
                               <input type="number" name="rsrp_range1_max" placeholder="Max %" step="0.01"
-                                class="form-control form-control-sm" data-location="{{ loop.index }}">
+                                class="form-control form-control-sm" data-location="{{ loop.index }}"
+                                oninput="debounceCommonLocationRsrpFilterByInput(this)">
                             </div>
                           </div>
                         </div>
@@ -625,11 +637,13 @@
                           <div class="row g-1">
                             <div class="col-6">
                               <input type="number" name="rsrp_range2_min" placeholder="Min %" step="0.01"
-                                class="form-control form-control-sm" data-location="{{ loop.index }}">
+                                class="form-control form-control-sm" data-location="{{ loop.index }}"
+                                oninput="debounceCommonLocationRsrpFilterByInput(this)">
                             </div>
                             <div class="col-6">
                               <input type="number" name="rsrp_range2_max" placeholder="Max %" step="0.01"
-                                class="form-control form-control-sm" data-location="{{ loop.index }}">
+                                class="form-control form-control-sm" data-location="{{ loop.index }}"
+                                oninput="debounceCommonLocationRsrpFilterByInput(this)">
                             </div>
                           </div>
                         </div>
@@ -640,31 +654,35 @@
                           <div class="row g-1">
                             <div class="col-6">
                               <input type="number" name="rsrp_range3_min" placeholder="Min %" step="0.01"
-                                class="form-control form-control-sm" data-location="{{ loop.index }}">
+                                class="form-control form-control-sm" data-location="{{ loop.index }}"
+                                oninput="debounceCommonLocationRsrpFilterByInput(this)">
                             </div>
                             <div class="col-6">
                               <input type="number" name="rsrp_range3_max" placeholder="Max %" step="0.01"
-                                class="form-control form-control-sm" data-location="{{ loop.index }}">
+                                class="form-control form-control-sm" data-location="{{ loop.index }}"
+                                oninput="debounceCommonLocationRsrpFilterByInput(this)">
                             </div>
                           </div>
                         </div>
                       </th>
                       <th>
                         <div class="text-center">RSRP < -115dBm %</div>
-                            <div class="mt-2">
-                              <div class="row g-1">
-                                <div class="col-6">
-                                  <input type="number" name="rsrp_range4_min" placeholder="Min %" step="0.01"
-                                    class="form-control form-control-sm" data-location="{{ loop.index }}">
-                                </div>
-                                <div class="col-6">
-                                  <input type="number" name="rsrp_range4_max" placeholder="Max %" step="0.01"
-                                    class="form-control form-control-sm" data-location="{{ loop.index }}">
-                                </div>
-                              </div>
+                        <div class="mt-2">
+                          <div class="row g-1">
+                            <div class="col-6">
+                              <input type="number" name="rsrp_range4_min" placeholder="Min %" step="0.01"
+                                class="form-control form-control-sm" data-location="{{ loop.index }}"
+                                oninput="debounceCommonLocationRsrpFilterByInput(this)">
                             </div>
+                            <div class="col-6">
+                              <input type="number" name="rsrp_range4_max" placeholder="Max %" step="0.01"
+                                class="form-control form-control-sm" data-location="{{ loop.index }}"
+                                oninput="debounceCommonLocationRsrpFilterByInput(this)">
+                            </div>
+                          </div>
+                        </div>
                       </th>
-                    </tr>
+                      </tr>
                   </thead>
                   <tbody id="commonRsrpTableBody{{ loop.index }}">
                     {% set grouped_rsrp = {} %}
@@ -685,12 +703,12 @@
                     {% set site_name_row_index = [0] %}
                     {% for site_id, site_id_rows in site_id_groups.items() %}
                     {% for row in site_id_rows %}
-                    <tr class="rsrp-row">
+                    <tr>
                       {% if site_name_row_index[0] == 0 %}
-                      <td rowspan="{{ total_site_name_rows }}" class="rsrp-site-cell">{{ site_name }}</td>
+                      <td rowspan="{{ total_site_name_rows }}">{{ site_name }}</td>
                       {% endif %}
                       {% if loop.index == 1 %}
-                      <td rowspan="{{ site_id_rows|length }}" class="rsrp-site-id-cell">{{ site_id }}</td>
+                      <td rowspan="{{ site_id_rows|length }}">{{ site_id }}</td>
                       {% endif %}
                       <td>{{ row['Cell_Name'] }}</td>
                       <td>{{ row['RSRP Range 1 (>-105dBm) %'] }}%</td>
@@ -802,6 +820,46 @@
 
     <!-- RSRP Filtering JavaScript -->
     <script>
+      // Debounce timers for real-time filtering
+      let rsrpFilterTimeout;
+      let commonLocationFilterTimeouts = {};
+
+      // Debounced real-time filtering for main RSRP table
+      function debounceRsrpFilter() {
+        clearTimeout(rsrpFilterTimeout);
+        rsrpFilterTimeout = setTimeout(() => {
+          applyRsrpFilters();
+        }, 500); // 500ms delay
+      }
+
+      // Debounced real-time filtering for common location RSRP tables (form inputs)
+      function debounceCommonLocationRsrpFilter(element) {
+        const form = element.closest('.common-rsrp-filter-form');
+        const locationIndex = form.getAttribute('data-location');
+        
+        clearTimeout(commonLocationFilterTimeouts[locationIndex]);
+        commonLocationFilterTimeouts[locationIndex] = setTimeout(() => {
+          const applyButton = form.querySelector('button[data-location-index="' + locationIndex + '"]');
+          if (applyButton) {
+            applyCommonLocationRsrpFilters(applyButton);
+          }
+        }, 500);
+      }
+
+      // Debounced real-time filtering for common location RSRP tables (table header inputs)
+      function debounceCommonLocationRsrpFilterByInput(input) {
+        const locationIndex = input.getAttribute('data-location');
+        
+        clearTimeout(commonLocationFilterTimeouts[locationIndex]);
+        commonLocationFilterTimeouts[locationIndex] = setTimeout(() => {
+          const form = document.querySelector('.common-rsrp-filter-form[data-location="' + locationIndex + '"]');
+          const applyButton = form.querySelector('button[data-location-index="' + locationIndex + '"]');
+          if (applyButton) {
+            applyCommonLocationRsrpFilters(applyButton);
+          }
+        }, 500);
+      }
+
       function applyRsrpFilters() {
         const form = document.getElementById('rsrpFilterForm');
         const formData = new FormData(form);
@@ -858,7 +916,8 @@
         tbody.innerHTML = '';
 
         if (data.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No RSRP data matches the current filters</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted"><i class="fas fa-info-circle"></i> No RSRP data matches the current filters</td></tr>';
+          updateRsrpStats(0, 0);
           return;
         }
 
@@ -902,12 +961,18 @@
                 html += `<td rowspan="${siteIdRows.length}" class="rsrp-site-id-cell">${siteId}</td>`;
               }
 
+              // Apply RSRP range coloring based on values
+              const range1 = parseFloat(row['RSRP Range 1 (>-105dBm) %']) || 0;
+              const range2 = parseFloat(row['RSRP Range 2 (-105~-110dBm) %']) || 0;
+              const range3 = parseFloat(row['RSRP Range 3 (-110~-115dBm) %']) || 0;
+              const range4 = parseFloat(row['RSRP < -115dBm %']) || 0;
+
               html += `
               <td>${row['Cell_Name']}</td>
-              <td>${row['RSRP Range 1 (>-105dBm) %']}%</td>
-              <td>${row['RSRP Range 2 (-105~-110dBm) %']}%</td>
-              <td>${row['RSRP Range 3 (-110~-115dBm) %']}%</td>
-              <td>${row['RSRP < -115dBm %']}%</td>
+              <td class="${getRsrpRangeClass(range1, 'excellent')}">${range1.toFixed(1)}%</td>
+              <td class="${getRsrpRangeClass(range2, 'good')}">${range2.toFixed(1)}%</td>
+              <td class="${getRsrpRangeClass(range3, 'fair')}">${range3.toFixed(1)}%</td>
+              <td class="${getRsrpRangeClass(range4, 'poor')}">${range4.toFixed(1)}%</td>
             `;
 
               tr.innerHTML = html;
@@ -916,21 +981,44 @@
             });
           });
         });
+
+        // Update stats
+        updateRsrpStats(data.length, data.length);
+      }
+
+      function getRsrpRangeClass(value, type) {
+        if (value > 50) return `rsrp-range-${type}`;
+        return '';
+      }
+
+      function updateRsrpStats(filteredCount, totalCount) {
+        const statsDiv = document.getElementById('rsrpStats');
+        if (statsDiv) {
+          if (filteredCount < totalCount) {
+            statsDiv.innerHTML = `<i class="fas fa-filter"></i> Showing ${filteredCount} of ${totalCount} records`;
+          } else {
+            statsDiv.innerHTML = `<i class="fas fa-table"></i> ${totalCount} records total`;
+          }
+        }
       }
 
       function updateRsrpStatus(filteredCount, totalCount) {
         const statusDiv = document.getElementById('rsrpStatus');
-        if (filteredCount < totalCount) {
-          statusDiv.textContent = `Showing ${filteredCount} of ${totalCount} RSRP records (filtered)`;
-        } else {
-          statusDiv.textContent = `Showing all ${totalCount} RSRP records`;
+        if (statusDiv) {
+          if (filteredCount < totalCount) {
+            statusDiv.textContent = `Showing ${filteredCount} of ${totalCount} RSRP records (filtered)`;
+          } else {
+            statusDiv.textContent = `Showing all ${totalCount} RSRP records`;
+          }
         }
+        // Also update the main stats
+        updateRsrpStats(filteredCount, totalCount);
       }
 
       // Common Location RSRP Filtering Functions
       function applyCommonLocationRsrpFilters(buttonElement) {
         const locationIndex = buttonElement.getAttribute('data-location-index');
-        const form = document.querySelector(`form.common-rsrp-filter-form[data-location="${locationIndex}"]`);
+        const form = document.querySelector('form.common-rsrp-filter-form[data-location="' + locationIndex + '"]');
         const formData = new FormData(form);
 
         // Add the site ID from the form's hidden input
@@ -940,7 +1028,7 @@
         }
 
         // Add values from table header inputs for this location
-        const headerInputs = document.querySelectorAll(`input[data-location="${locationIndex}"]`);
+        const headerInputs = document.querySelectorAll('input[data-location="' + locationIndex + '"]');
         headerInputs.forEach(input => {
           if (input.value.trim()) {
             formData.set(input.name, input.value);
@@ -969,7 +1057,7 @@
 
       function clearCommonLocationRsrpFilters(buttonElement) {
         const locationIndex = buttonElement.getAttribute('data-location-index');
-        const form = document.querySelector(`form.common-rsrp-filter-form[data-location="${locationIndex}"]`);
+        const form = document.querySelector('form.common-rsrp-filter-form[data-location="' + locationIndex + '"]');
         const inputs = form.querySelectorAll('input[type="text"], input[type="number"], select');
         inputs.forEach(input => {
           if (input.name !== 'msisdn' && input.name !== 'cell_code') {
@@ -978,7 +1066,7 @@
         });
 
         // Also clear inputs in table headers for this location
-        const headerInputs = document.querySelectorAll(`input[data-location="${locationIndex}"]`);
+        const headerInputs = document.querySelectorAll('input[data-location="' + locationIndex + '"]');
         headerInputs.forEach(input => {
           input.value = '';
         });
@@ -988,11 +1076,12 @@
       }
 
       function updateCommonLocationRsrpTable(locationIndex, data) {
-        const tbody = document.getElementById(`commonRsrpTableBody${locationIndex}`);
+        const tbody = document.getElementById('commonRsrpTableBody' + locationIndex);
         tbody.innerHTML = '';
 
         if (data.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No RSRP data matches the current filters</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted"><i class="fas fa-info-circle"></i> No RSRP data matches the current filters</td></tr>';
+          updateCommonLocationRsrpStats(locationIndex, 0, 0);
           return;
         }
 
@@ -1036,12 +1125,18 @@
                 html += `<td rowspan="${siteIdRows.length}" class="rsrp-site-id-cell">${siteId}</td>`;
               }
 
+              // Apply RSRP range coloring based on values
+              const range1 = parseFloat(row['RSRP Range 1 (>-105dBm) %']) || 0;
+              const range2 = parseFloat(row['RSRP Range 2 (-105~-110dBm) %']) || 0;
+              const range3 = parseFloat(row['RSRP Range 3 (-110~-115dBm) %']) || 0;
+              const range4 = parseFloat(row['RSRP < -115dBm %']) || 0;
+
               html += `
               <td>${row['Cell_Name']}</td>
-              <td>${row['RSRP Range 1 (>-105dBm) %']}%</td>
-              <td>${row['RSRP Range 2 (-105~-110dBm) %']}%</td>
-              <td>${row['RSRP Range 3 (-110~-115dBm) %']}%</td>
-              <td>${row['RSRP < -115dBm %']}%</td>
+              <td class="${getRsrpRangeClass(range1, 'excellent')}">${range1.toFixed(1)}%</td>
+              <td class="${getRsrpRangeClass(range2, 'good')}">${range2.toFixed(1)}%</td>
+              <td class="${getRsrpRangeClass(range3, 'fair')}">${range3.toFixed(1)}%</td>
+              <td class="${getRsrpRangeClass(range4, 'poor')}">${range4.toFixed(1)}%</td>
             `;
 
               tr.innerHTML = html;
@@ -1050,14 +1145,30 @@
             });
           });
         });
+
+        // Update stats
+        updateCommonLocationRsrpStats(locationIndex, data.length, data.length);
+      }
+
+      function updateCommonLocationRsrpStats(locationIndex, filteredCount, totalCount) {
+        const statsDiv = document.getElementById('commonRsrpStats' + locationIndex);
+        if (statsDiv) {
+          if (filteredCount < totalCount) {
+            statsDiv.innerHTML = '<i class="fas fa-filter"></i> Showing ' + filteredCount + ' of ' + totalCount + ' records';
+          } else {
+            statsDiv.innerHTML = '<i class="fas fa-table"></i> ' + totalCount + ' records total';
+          }
+        }
       }
 
       function updateCommonLocationRsrpStatus(locationIndex, filteredCount, totalCount) {
-        const statusDiv = document.getElementById(`commonRsrpStatus${locationIndex}`);
-        if (filteredCount < totalCount) {
-          statusDiv.textContent = `Showing ${filteredCount} of ${totalCount} RSRP records (filtered)`;
-        } else {
-          statusDiv.textContent = `Showing all ${totalCount} RSRP records`;
+        const statusDiv = document.getElementById('commonRsrpStatus' + locationIndex);
+        if (statusDiv) {
+          if (filteredCount < totalCount) {
+            statusDiv.textContent = 'Showing ' + filteredCount + ' of ' + totalCount + ' RSRP records (filtered)';
+          } else {
+            statusDiv.textContent = 'Showing all ' + totalCount + ' RSRP records';
+          }
         }
       }
     </script>
