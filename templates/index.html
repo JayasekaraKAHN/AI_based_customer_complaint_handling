@@ -560,8 +560,9 @@
               <div class="row mb-3">
                 <div class="col-md-12">
                   <div class="bg-light p-3 rounded">
-                    <form id="rsrpFilterForm">
+                    <form class="common-rsrp-filter-form" data-location="{{ loop.index }}">
                       <input type="hidden" name="msisdn" value="{{ result['MSISDN'] }}">
+                      <input type="hidden" name="cell_code" value="{{ loc.CELL_CODE }}">
                       <div class="row g-2 mb-2">
                         <div class="col-md-2">
                           <input type="text" name="cell_name_filter" placeholder="Filter by Cell Name..."
@@ -586,10 +587,8 @@
                           </select>
                         </div>
                         <div class="col-md-3">
-                          <button type="button" onclick="applyRsrpFilters()" class="btn btn-primary btn-sm">Apply
-                            Filters</button>
-                          <button type="button" onclick="clearRsrpFilters()" class="btn btn-secondary btn-sm">Clear
-                            Filters</button>
+                          <button type="button" onclick="applyCommonLocationRsrpFilters(this)" data-location-index="{{ loop.index }}" class="btn btn-primary btn-sm">Apply Filters</button>
+                          <button type="button" onclick="clearCommonLocationRsrpFilters(this)" data-location-index="{{ loop.index }}" class="btn btn-secondary btn-sm">Clear Filters</button>
                         </div>
                       </div>
                     </form>
