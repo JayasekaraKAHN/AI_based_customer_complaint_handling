@@ -26,28 +26,7 @@
       overflow: hidden;
     }
 
-    /* RSRP Table Styles */
-    .rsrp-site-cell {
-      background-color: #f8f9fa !important;
-      font-weight: bold !important;
-      border-right: 2px solid #dee2e6 !important;
-      vertical-align: middle !important;
-    }
 
-    .rsrp-site-id-cell {
-      background-color: #e9ecef !important;
-      font-weight: 600 !important;
-      border-right: 1px solid #dee2e6 !important;
-      vertical-align: middle !important;
-    }
-
-    .rsrp-row {
-      border-bottom: 1px solid #e9ecef;
-    }
-
-    .rsrp-row:hover {
-      background-color: #f5f5f5;
-    }
 
     /* Simple Table Styling */
     .table th input.form-control-sm {
@@ -56,18 +35,202 @@
       height: 28px;
     }
 
-    /* RSRP Table Header Styling */
-    .table thead th {
+    /* Unified RSRP Table Styling */
+    .rsrp-table {
+      table-layout: fixed;
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    .rsrp-table th,
+    .rsrp-table td {
+      word-wrap: break-word;
+      white-space: normal;
+      vertical-align: middle;
+      padding: 8px 6px;
+      border: 1px solid #dee2e6;
+    }
+
+    /* Header styling */
+    .rsrp-table thead th {
       background-color: #6c757d;
       color: white;
       text-align: center;
-      vertical-align: middle;
       font-weight: 600;
+      vertical-align: top;
+      padding: 10px 6px;
     }
 
-    .table thead th div {
+    .rsrp-table thead th div {
       text-align: center;
     }
+
+    .rsrp-table thead th input.form-control-sm {
+      font-size: 0.7rem;
+      padding: 2px 4px;
+      height: auto;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    /* Fixed column widths */
+    .rsrp-table th:nth-child(1),
+    .rsrp-table td:nth-child(1) {
+      width: 140px;
+      min-width: 140px;
+      max-width: 140px;
+    }
+
+    .rsrp-table th:nth-child(2),
+    .rsrp-table td:nth-child(2) {
+      width: 100px;
+      min-width: 100px;
+      max-width: 100px;
+    }
+
+    .rsrp-table th:nth-child(3),
+    .rsrp-table td:nth-child(3) {
+      width: 160px;
+      min-width: 160px;
+      max-width: 160px;
+    }
+
+    .rsrp-table th:nth-child(4),
+    .rsrp-table th:nth-child(5),
+    .rsrp-table th:nth-child(6),
+    .rsrp-table th:nth-child(7),
+    .rsrp-table td:nth-child(4),
+    .rsrp-table td:nth-child(5),
+    .rsrp-table td:nth-child(6),
+    .rsrp-table td:nth-child(7) {
+      width: 120px;
+      min-width: 120px;
+      max-width: 120px;
+    }
+
+    /* Site Name column styling */
+    .rsrp-site-cell {
+      background-color: #f8f9fa;
+      font-weight: bold;
+      border-right: 2px solid #dee2e6;
+    }
+
+    /* Site ID column styling */
+    .rsrp-site-id-cell {
+      background-color: #e9ecef;
+      font-weight: 600;
+      border-right: 1px solid #dee2e6;
+    }
+
+    /* Cell Name column styling */
+    .rsrp-cell-name {
+      background-color: #ffffff;
+    }
+
+    /* Data columns styling */
+    .rsrp-data-cell {
+      background-color: #ffffff;
+      text-align: center;
+    }
+
+    /* Hover effects */
+    .rsrp-table tbody tr:hover {
+      background-color: #f8f9fa;
+      transition: background-color 0.15s ease-in-out;
+    }
+
+    .rsrp-table tbody tr:hover .rsrp-site-cell {
+      background-color: #e9ecef;
+    }
+
+    .rsrp-table tbody tr:hover .rsrp-site-id-cell {
+      background-color: #dee2e6;
+    }
+
+    /* RSRP section styling */
+    .rsrp-section {
+      margin-bottom: 2rem;
+    }
+
+    .rsrp-section h5 {
+      color: #495057;
+      font-weight: 600;
+      border-bottom: 2px solid #dee2e6;
+      padding-bottom: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Filter controls styling */
+    .rsrp-filter-controls {
+      background-color: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .rsrp-filter-controls .form-control-sm,
+    .rsrp-filter-controls .form-select-sm {
+      font-size: 0.8rem;
+      height: 32px;
+    }
+
+    /* Status text */
+    .rsrp-status {
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+      color: #6c757d;
+    }
+
+    /* Table responsive wrapper */
+    .table-responsive {
+      overflow-x: auto;
+      margin-bottom: 1rem;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .rsrp-table {
+        font-size: 0.75rem;
+      }
+      
+      .rsrp-table th:nth-child(1),
+      .rsrp-table td:nth-child(1) {
+        width: 120px;
+        min-width: 120px;
+        max-width: 120px;
+      }
+
+      .rsrp-table th:nth-child(2),
+      .rsrp-table td:nth-child(2) {
+        width: 80px;
+        min-width: 80px;
+        max-width: 80px;
+      }
+
+      .rsrp-table th:nth-child(3),
+      .rsrp-table td:nth-child(3) {
+        width: 130px;
+        min-width: 130px;
+        max-width: 130px;
+      }
+
+      .rsrp-table th:nth-child(4),
+      .rsrp-table th:nth-child(5),
+      .rsrp-table th:nth-child(6),
+      .rsrp-table th:nth-child(7),
+      .rsrp-table td:nth-child(4),
+      .rsrp-table td:nth-child(5),
+      .rsrp-table td:nth-child(6),
+      .rsrp-table td:nth-child(7) {
+        width: 100px;
+        min-width: 100px;
+        max-width: 100px;
+      }
+    }
+
+
 
 
 
@@ -88,27 +251,6 @@
       border-top: 1px solid #dee2e6;
       padding-top: 12px;
       margin-top: 8px;
-    }
-
-    /* Simple responsive adjustments */
-    @media (max-width: 768px) {
-      .table {
-        font-size: 0.75rem;
-      }
-    }
-
-    #commonRsrpTable th,
-    #rsrpTable th {
-      vertical-align: top;
-      padding: 10px 6px;
-      min-width: 120px;
-    }
-
-    #commonRsrpTable th input.form-control-sm,
-    #rsrpTable th input.form-control-sm {
-      font-size: 0.7rem;
-      padding: 2px 4px;
-      height: auto;
     }
 
     .card-header h6 {
@@ -372,13 +514,12 @@
       <!-- RSRP Data Tab Content -->
       <div class="tab-pane fade" id="rsrp" role="tabpanel" aria-labelledby="rsrp-tab">
         <div class="card p-4 mt-3">
-          <h5>RSRP for Recent Location</h5>
-
-          <!-- RSRP Filtering Controls -->
-          <div class="row mb-3">
-            <div class="col-md-12">
-              <div class="bg-light p-3 rounded">
-                <form id="rsrpFilterForm">
+          <div class="rsrp-section">
+            <h5 class="mb-3">RSRP for Recent Location</h5>            <!-- RSRP Filtering Controls -->
+            <div class="row mb-3">
+              <div class="col-md-12">
+                <div class="rsrp-filter-controls">
+                  <form id="rsrpFilterForm">
                   <input type="hidden" name="msisdn" value="{{ result['MSISDN'] }}">
                   <div class="row g-2 mb-2">
                     <div class="col-md-2">
@@ -387,9 +528,10 @@
                         oninput="debounceRsrpFilter()"
                         onkeyup="debounceRsrpFilter()">
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                       <select name="sort_by" class="form-select form-select-sm" onchange="debounceRsrpFilter()">
                         <option value="">Sort by...</option>
+                        <!-- <option value="Site_Name">Site Name</option> -->
                         <option value="Cell_Name">Cell Name</option>
                         <option value="RSRP Range 1 (>-105dBm) %">RSRP Range 1</option>
                         <option value="RSRP Range 2 (-105~-110dBm) %">RSRP Range 2</option>
@@ -403,9 +545,8 @@
                         <option value="desc">Descending</option>
                       </select>
                     </div>
-                    <div class="col-md-3">
-                      <button type="button" onclick="clearRsrpFilters()" class="btn btn-secondary btn-sm">Clear
-                        Filters</button>
+                    <div class="col-md-2">
+                      <button type="button" onclick="clearRsrpFilters()" class="btn btn-secondary btn-sm">Clear Filters</button>
                     </div>
                   </div>
                 </form>
@@ -414,8 +555,8 @@
           </div>
 
           <!-- RSRP Table -->
-          <div id="rsrpTableContainer">
-            <table class="table table-bordered" id="rsrpTable">
+          <div class="table-responsive">
+            <table class="table table-bordered rsrp-table" id="rsrpTable">
               <thead>
                 <tr>
                   <th>Site Name</th>
@@ -513,16 +654,16 @@
                 {% for row in site_id_rows %}
                 <tr>
                   {% if site_name_row_index[0] == 0 %}
-                  <td rowspan="{{ total_site_name_rows }}">{{ site_name }}</td>
+                  <td rowspan="{{ total_site_name_rows }}" class="rsrp-site-cell">{{ site_name }}</td>
                   {% endif %}
                   {% if loop.index == 1 %}
-                  <td rowspan="{{ site_id_rows|length }}">{{ site_id }}</td>
+                  <td rowspan="{{ site_id_rows|length }}" class="rsrp-site-id-cell">{{ site_id }}</td>
                   {% endif %}
-                  <td>{{ row['Cell_Name'] }}</td>
-                  <td>{{ row['RSRP Range 1 (>-105dBm) %'] }}%</td>
-                  <td>{{ row['RSRP Range 2 (-105~-110dBm) %'] }}%</td>
-                  <td>{{ row['RSRP Range 3 (-110~-115dBm) %'] }}%</td>
-                  <td>{{ row['RSRP < -115dBm %'] }}%</td>
+                  <td class="rsrp-cell-name">{{ row['Cell_Name'] }}</td>
+                  <td class="rsrp-data-cell">{{ row['RSRP Range 1 (>-105dBm) %'] }}%</td>
+                  <td class="rsrp-data-cell">{{ row['RSRP Range 2 (-105~-110dBm) %'] }}%</td>
+                  <td class="rsrp-data-cell">{{ row['RSRP Range 3 (-110~-115dBm) %'] }}%</td>
+                  <td class="rsrp-data-cell">{{ row['RSRP < -115dBm %'] }}%</td>
                 </tr>
                 {% set _ = site_name_row_index.append(site_name_row_index.pop() + 1) %}
                 {% endfor %}
@@ -535,7 +676,8 @@
                 {% endif %}
               </tbody>
             </table>
-            <div id="rsrpStatus" class="text-muted small"></div>
+            <div id="rsrpStatus" class="rsrp-status"></div>
+          </div>
           </div>
 
           <!-- Common Locations RSRP Data -->
@@ -550,13 +692,14 @@
           {% endfor %}
 
           {% if all_common_rsrp_data %}
-          <div class="mt-5">
+          <hr class="my-4">
+          <div class="rsrp-section">
             <h5 class="mb-3">RSRP for Common Locations ({{ result["Common Cell Locations"]|length }} locations)</h5>
 
             <!-- RSRP Filtering Controls for all common locations -->
             <div class="row mb-3">
               <div class="col-md-12">
-                <div class="bg-light p-3 rounded">
+                <div class="rsrp-filter-controls">
                   <form id="commonRsrpFilterForm">
                     <input type="hidden" name="msisdn" value="{{ result['MSISDN'] }}">
                     <div class="row g-2 mb-2">
@@ -600,7 +743,7 @@
 
             <!-- Unified RSRP Table for all common locations -->
             <div class="table-responsive">
-              <table class="table table-bordered" id="commonRsrpTable">
+              <table class="table table-bordered rsrp-table" id="commonRsrpTable">
                 <thead>
                   <tr>
                     <th>Site Name</th>
@@ -710,11 +853,11 @@
                         {% if loop.index == 1 %}
                         <td rowspan="{{ site_id_rows|length }}" class="rsrp-site-id-cell">{{ site_id }}</td>
                         {% endif %}
-                        <td>{{ row['Cell_Name'] }}</td>
-                        <td>{{ row['RSRP Range 1 (>-105dBm) %'] }}%</td>
-                        <td>{{ row['RSRP Range 2 (-105~-110dBm) %'] }}%</td>
-                        <td>{{ row['RSRP Range 3 (-110~-115dBm) %'] }}%</td>
-                        <td>{{ row['RSRP < -115dBm %'] }}%</td>
+                        <td class="rsrp-cell-name">{{ row['Cell_Name'] }}</td>
+                        <td class="rsrp-data-cell">{{ row['RSRP Range 1 (>-105dBm) %'] }}%</td>
+                        <td class="rsrp-data-cell">{{ row['RSRP Range 2 (-105~-110dBm) %'] }}%</td>
+                        <td class="rsrp-data-cell">{{ row['RSRP Range 3 (-110~-115dBm) %'] }}%</td>
+                        <td class="rsrp-data-cell">{{ row['RSRP < -115dBm %'] }}%</td>
                       </tr>
                       {% set _ = site_name_row_index.append(site_name_row_index.pop() + 1) %}
                       {% endfor %}
@@ -722,12 +865,13 @@
                   {% endfor %}
                 </tbody>
               </table>
-              <div id="commonRsrpStatus" class="text-muted small"></div>
+              <div id="commonRsrpStatus" class="rsrp-status"></div>
             </div>
           </div>
           {% endif %}
           {% endif %}
           </div>
+        </div>
         </div>
       </div>
     </div>
@@ -980,11 +1124,11 @@
               const range4 = parseFloat(row['RSRP < -115dBm %']) || 0;
 
               html += `
-              <td>${row['Cell_Name']}</td>
-              <td class="${getRsrpRangeClass(range1, 'excellent')}">${range1.toFixed(1)}%</td>
-              <td class="${getRsrpRangeClass(range2, 'good')}">${range2.toFixed(1)}%</td>
-              <td class="${getRsrpRangeClass(range3, 'fair')}">${range3.toFixed(1)}%</td>
-              <td class="${getRsrpRangeClass(range4, 'poor')}">${range4.toFixed(1)}%</td>
+              <td class="rsrp-cell-name">${row['Cell_Name']}</td>
+              <td class="rsrp-data-cell ${getRsrpRangeClass(range1, 'excellent')}">${range1.toFixed(1)}%</td>
+              <td class="rsrp-data-cell ${getRsrpRangeClass(range2, 'good')}">${range2.toFixed(1)}%</td>
+              <td class="rsrp-data-cell ${getRsrpRangeClass(range3, 'fair')}">${range3.toFixed(1)}%</td>
+              <td class="rsrp-data-cell ${getRsrpRangeClass(range4, 'poor')}">${range4.toFixed(1)}%</td>
             `;
 
               tr.innerHTML = html;
@@ -1049,11 +1193,11 @@
               const range4 = parseFloat(row['RSRP < -115dBm %']) || 0;
 
               html += `
-              <td>${row['Cell_Name']}</td>
-              <td class="${getRsrpRangeClass(range1, 'excellent')}">${range1.toFixed(1)}%</td>
-              <td class="${getRsrpRangeClass(range2, 'good')}">${range2.toFixed(1)}%</td>
-              <td class="${getRsrpRangeClass(range3, 'fair')}">${range3.toFixed(1)}%</td>
-              <td class="${getRsrpRangeClass(range4, 'poor')}">${range4.toFixed(1)}%</td>
+              <td class="rsrp-cell-name">${row['Cell_Name']}</td>
+              <td class="rsrp-data-cell ${getRsrpRangeClass(range1, 'excellent')}">${range1.toFixed(1)}%</td>
+              <td class="rsrp-data-cell ${getRsrpRangeClass(range2, 'good')}">${range2.toFixed(1)}%</td>
+              <td class="rsrp-data-cell ${getRsrpRangeClass(range3, 'fair')}">${range3.toFixed(1)}%</td>
+              <td class="rsrp-data-cell ${getRsrpRangeClass(range4, 'poor')}">${range4.toFixed(1)}%</td>
             `;
 
               tr.innerHTML = html;
@@ -1067,7 +1211,18 @@
       }
 
       function getRsrpRangeClass(value, type) {
-        if (value > 50) return `rsrp-range-${type}`;
+        // Apply color coding based on percentage thresholds
+        if (type === 'excellent' && value > 70) return 'rsrp-range-excellent';
+        if (type === 'good' && value > 60) return 'rsrp-range-good';
+        if (type === 'fair' && value > 50) return 'rsrp-range-fair';
+        if (type === 'poor' && value > 40) return 'rsrp-range-poor';
+        
+        // General color coding for any high values
+        if (value > 80) return 'rsrp-range-excellent';
+        if (value > 60) return 'rsrp-range-good';
+        if (value > 40) return 'rsrp-range-fair';
+        if (value > 20) return 'rsrp-range-poor';
+        
         return '';
       }
 
