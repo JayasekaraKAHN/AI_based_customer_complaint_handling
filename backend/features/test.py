@@ -20,11 +20,17 @@ import os
 import folium
 import calendar
 
-app = Flask(__name__)
+# Update paths to point to the correct directories relative to the new location
+template_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'templates'))
+static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'static'))
+
+app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
 app.secret_key = "admin12345"
 app.permanent_session_lifetime = timedelta(minutes=10)
 
-def auto_detect_usage_files(data_directory="."):
+def auto_detect_usage_files(data_directory=None):
+    if data_directory is None:
+        data_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data_files'))
     usage_files = {}    
     try:
         all_files = os.listdir(data_directory)
@@ -40,7 +46,7 @@ def auto_detect_usage_files(data_directory="."):
             month_year_key = f"{month_name} {year}"
             
             usage_files[month_year_key] = {
-                'filename': filename,
+                'filename': os.path.join(data_directory, filename),
                 'year': year,
                 'month': month,
                 'month_name': month_name
@@ -48,12 +54,13 @@ def auto_detect_usage_files(data_directory="."):
             
     return usage_files
 
-# File paths
-REFERENCE_FILE = "Reference_Data_Cell_Locations_20250403.csv"
-TAC_FILE = "TACD_UPDATED.csv"
-INPUT_FILE = "All_2025-4-2_3.txt"
+# File paths - Updated for new directory structure
+data_files_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data_files'))
+REFERENCE_FILE = os.path.join(data_files_dir, "Reference_Data_Cell_Locations_20250403.csv")
+TAC_FILE = os.path.join(data_files_dir, "TACD_UPDATED.csv")
+INPUT_FILE = os.path.join(data_files_dir, "All_2025-4-2_3.txt")
 USAGE_FILES = auto_detect_usage_files() 
-VLRD = pd.read_excel('VLRD_Sample.xlsx')
+VLRD = pd.read_excel('backend/data_files/VLRD_Sample.xlsx')
 
 # Load reference data
 ref_df = pd.read_csv(REFERENCE_FILE)
@@ -520,10 +527,12 @@ def show_map(msisdn):
     else:
         map_obj = create_location_map(result)
 
-    if not os.path.exists('static'):
-        os.makedirs('static')
+    # Ensure static directory exists (relative to app root)
+    static_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'static'))
+    if not os.path.exists(static_path):
+        os.makedirs(static_path)
     
-    map_path = 'static/temp_map.html'
+    map_path = os.path.join(static_path, 'temp_map.html')
     map_obj.save(map_path)
     
     return render_template('map_display.html', msisdn=msisdn, result=result)
@@ -540,10 +549,12 @@ def search():
     try:
         map_obj = create_location_map(result)
         
-        if not os.path.exists('static'):
-            os.makedirs('static')
+        # Ensure static directory exists (relative to app root)
+        static_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'static'))
+        if not os.path.exists(static_path):
+            os.makedirs(static_path)
         
-        map_path = 'static/temp_map.html'
+        map_path = os.path.join(static_path, 'temp_map.html')
         map_obj.save(map_path)
         has_map = True
     except Exception as e:

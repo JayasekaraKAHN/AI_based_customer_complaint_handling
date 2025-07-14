@@ -1,4 +1,5 @@
 import pandas as pd
+import os
 from flask import request, jsonify
 
 # Global variables for RSRP data
@@ -9,9 +10,12 @@ def initialize_rsrp_data():
     global zte_rsrp_df, huawei_rsrp_df
     
     try:
+        # Get the data files directory path relative to current file location
+        data_files_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data_files'))
+        
         # Load ZTE and Huawei RSRP data
-        zte_rsrp_df = pd.read_excel('ZTE RSRP.xlsx')
-        huawei_rsrp_df = pd.read_excel('Huawei RSRP.xlsx')
+        zte_rsrp_df = pd.read_excel(os.path.join(data_files_dir, 'ZTE RSRP.xlsx'))
+        huawei_rsrp_df = pd.read_excel(os.path.join(data_files_dir, 'Huawei RSRP.xlsx'))
         
         print("ZTE RSRP Columns:", zte_rsrp_df.columns)
         print("Huawei RSRP Columns:", huawei_rsrp_df.columns)
