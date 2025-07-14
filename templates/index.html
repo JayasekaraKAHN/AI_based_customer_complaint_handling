@@ -820,19 +820,16 @@
 
     <!-- RSRP Filtering JavaScript -->
     <script>
-      // Debounce timers for real-time filtering
       let rsrpFilterTimeout;
       let commonLocationFilterTimeouts = {};
 
-      // Debounced real-time filtering for main RSRP table
       function debounceRsrpFilter() {
         clearTimeout(rsrpFilterTimeout);
         rsrpFilterTimeout = setTimeout(() => {
           applyRsrpFilters();
-        }, 500); // 500ms delay
+        }, 200);
       }
 
-      // Debounced real-time filtering for common location RSRP tables (form inputs)
       function debounceCommonLocationRsrpFilter(element) {
         const form = element.closest('.common-rsrp-filter-form');
         const locationIndex = form.getAttribute('data-location');
@@ -846,7 +843,6 @@
         }, 500);
       }
 
-      // Debounced real-time filtering for common location RSRP tables (table header inputs)
       function debounceCommonLocationRsrpFilterByInput(input) {
         const locationIndex = input.getAttribute('data-location');
         
@@ -864,7 +860,6 @@
         const form = document.getElementById('rsrpFilterForm');
         const formData = new FormData(form);
 
-        // Add values from table header inputs (they have form="rsrpFilterForm" attribute)
         const headerInputs = document.querySelectorAll('input[form="rsrpFilterForm"]');
         headerInputs.forEach(input => {
           if (input.value.trim()) {
@@ -901,13 +896,11 @@
           }
         });
 
-        // Also clear inputs in table headers (they have form="rsrpFilterForm" attribute)
         const headerInputs = document.querySelectorAll('input[form="rsrpFilterForm"]');
         headerInputs.forEach(input => {
           input.value = '';
         });
 
-        // Reset to original data
         location.reload();
       }
 
@@ -921,7 +914,6 @@
           return;
         }
 
-        // Group data by Site Name, then by Site ID
         const groupedData = {};
         data.forEach(row => {
           const siteName = row['Site_Name'];
@@ -936,7 +928,6 @@
           groupedData[siteName][siteId].push(row);
         });
 
-        // Create table rows with merged Site Name and Site ID cells
         Object.keys(groupedData).forEach(siteName => {
           const siteNameGroups = groupedData[siteName];
           const totalSiteNameRows = Object.values(siteNameGroups).reduce((sum, arr) => sum + arr.length, 0);
@@ -951,17 +942,14 @@
 
               let html = '';
 
-              // Only show Site Name in the first row for this site name
               if (siteNameRowIndex === 0) {
                 html += `<td rowspan="${totalSiteNameRows}" class="rsrp-site-cell">${siteName}</td>`;
               }
 
-              // Only show Site ID in the first row for this site ID
               if (cellIndex === 0) {
                 html += `<td rowspan="${siteIdRows.length}" class="rsrp-site-id-cell">${siteId}</td>`;
               }
 
-              // Apply RSRP range coloring based on values
               const range1 = parseFloat(row['RSRP Range 1 (>-105dBm) %']) || 0;
               const range2 = parseFloat(row['RSRP Range 2 (-105~-110dBm) %']) || 0;
               const range3 = parseFloat(row['RSRP Range 3 (-110~-115dBm) %']) || 0;
@@ -982,7 +970,6 @@
           });
         });
 
-        // Update stats
         updateRsrpStats(data.length, data.length);
       }
 
@@ -1011,23 +998,19 @@
             statusDiv.textContent = `Showing all ${totalCount} RSRP records`;
           }
         }
-        // Also update the main stats
         updateRsrpStats(filteredCount, totalCount);
       }
 
-      // Common Location RSRP Filtering Functions
       function applyCommonLocationRsrpFilters(buttonElement) {
         const locationIndex = buttonElement.getAttribute('data-location-index');
         const form = document.querySelector('form.common-rsrp-filter-form[data-location="' + locationIndex + '"]');
         const formData = new FormData(form);
 
-        // Add the site ID from the form's hidden input
         const cellCode = formData.get('cell_code');
         if (cellCode) {
-          formData.set('site_id', cellCode.substring(0, 6)); // First 6 characters
+          formData.set('site_id', cellCode.substring(0, 6)); 
         }
 
-        // Add values from table header inputs for this location
         const headerInputs = document.querySelectorAll('input[data-location="' + locationIndex + '"]');
         headerInputs.forEach(input => {
           if (input.value.trim()) {
@@ -1065,13 +1048,11 @@
           }
         });
 
-        // Also clear inputs in table headers for this location
         const headerInputs = document.querySelectorAll('input[data-location="' + locationIndex + '"]');
         headerInputs.forEach(input => {
           input.value = '';
         });
 
-        // Reset to original data
         location.reload();
       }
 
@@ -1085,7 +1066,6 @@
           return;
         }
 
-        // Group data by Site Name, then by Site ID
         const groupedData = {};
         data.forEach(row => {
           const siteName = row['Site_Name'];
@@ -1100,7 +1080,6 @@
           groupedData[siteName][siteId].push(row);
         });
 
-        // Create table rows with merged Site Name and Site ID cells
         Object.keys(groupedData).forEach(siteName => {
           const siteNameGroups = groupedData[siteName];
           const totalSiteNameRows = Object.values(siteNameGroups).reduce((sum, arr) => sum + arr.length, 0);
@@ -1115,17 +1094,14 @@
 
               let html = '';
 
-              // Only show Site Name in the first row for this site name
               if (siteNameRowIndex === 0) {
                 html += `<td rowspan="${totalSiteNameRows}" class="rsrp-site-cell">${siteName}</td>`;
               }
 
-              // Only show Site ID in the first row for this site ID
               if (cellIndex === 0) {
                 html += `<td rowspan="${siteIdRows.length}" class="rsrp-site-id-cell">${siteId}</td>`;
               }
 
-              // Apply RSRP range coloring based on values
               const range1 = parseFloat(row['RSRP Range 1 (>-105dBm) %']) || 0;
               const range2 = parseFloat(row['RSRP Range 2 (-105~-110dBm) %']) || 0;
               const range3 = parseFloat(row['RSRP Range 3 (-110~-115dBm) %']) || 0;
@@ -1146,7 +1122,6 @@
           });
         });
 
-        // Update stats
         updateCommonLocationRsrpStats(locationIndex, data.length, data.length);
       }
 
