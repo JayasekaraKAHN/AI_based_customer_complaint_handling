@@ -464,7 +464,7 @@ def fetch_rsrp_data_directly(cell_code):
 
     site_info = []
     
-    # Process ZTE data
+    # Process ZTE data - values are in decimal format, need to multiply by 100 for percentage
     for _, rsrp_row in zte_filtered.iterrows():
         site_info.append({
             'Site_Name': rsrp_row['Site Name'],
@@ -476,7 +476,7 @@ def fetch_rsrp_data_directly(cell_code):
             'RSRP < -115dBm %': round(float(rsrp_row['RSRP < -115dBm']) * 100, 2)
         })
     
-    # Process Huawei data
+    # Process Huawei data - values are already in percentage format, no multiplication needed
     for _, rsrp_row in huawei_filtered.iterrows():
         site_info.append({
             'Site_Name': rsrp_row['Site Name'],
@@ -490,260 +490,8 @@ def fetch_rsrp_data_directly(cell_code):
 
     return site_info
 
-def filter_and_sort_rsrp_data(rsrp_data, filters=None, sort_by=None, sort_order='asc'):
-    if not rsrp_data:
-        return []
-    
-    filtered_data = rsrp_data.copy()
-    
-    if filters:
-        for key, value in filters.items():
-            if value and str(value).strip():
-                filtered_data = apply_type_sensitive_filter(filtered_data, key, value)
-    
-    # Apply sorting
-    if sort_by and sort_by in ['Cell_Name', 'Site_ID', 'Site_Name', 'RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %',
-                               'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
-        try:
-            is_numeric = sort_by in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %',
-                                   'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']
-            
-            if is_numeric:
-                filtered_data.sort(
-                    key=lambda x: float(x.get(sort_by, 0)),
-                    reverse=(sort_order == 'desc')
-                )
-            else:
-                filtered_data.sort(
-                    key=lambda x: str(x.get(sort_by, '')).lower(),
-                    reverse=(sort_order == 'desc')
-                )
-        except (ValueError, TypeError):
-            pass 
-    
-    return filtered_data
 
-def apply_type_sensitive_filter(data, filter_key, filter_value):
-    value_str = str(filter_value).strip()
-    
-    if filter_key in ['Cell_Name', 'Site_ID', 'Site_Name']:
-        return apply_text_filter(data, filter_key, value_str)
-    
-    elif filter_key.endswith('_min'):
-        return apply_numeric_min_filter(data, filter_key, value_str)
-    elif filter_key.endswith('_max'):
-        return apply_numeric_max_filter(data, filter_key, value_str)
-    
-    else:
-        return apply_auto_detect_filter(data, filter_key, value_str)
 
-def apply_text_filter(data, column, value):
-
-    if value.startswith('='):
-        target = value[1:].lower()
-        return [
-            row for row in data 
-            if str(row.get(column, '')).lower() == target
-        ]
-    
-    elif value.startswith('!='):
-        target = value[2:].lower()
-        return [
-            row for row in data 
-            if str(row.get(column, '')).lower() != target
-        ]
-    
-    elif '*' in value or '%' in value:
-        return apply_wildcard_filter(data, column, value)
-    
-    elif value.startswith('/') and value.endswith('/') and len(value) > 2:
-        return apply_regex_filter(data, column, value[1:-1])
-    
-    else:
-        return [
-            row for row in data 
-            if value.lower() in str(row.get(column, '')).lower()
-        ]
-
-def apply_numeric_min_filter(data, filter_key, value):
-    rsrp_column = filter_key.replace('_min', '')
-    if rsrp_column in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %', 
-                      'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
-        try:
-            min_value = float(value)
-            return [
-                row for row in data 
-                if float(row.get(rsrp_column, 0)) >= min_value
-            ]
-        except (ValueError, TypeError):
-            return data
-    return data
-
-def apply_numeric_max_filter(data, filter_key, value):
-    rsrp_column = filter_key.replace('_max', '')
-    if rsrp_column in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %', 
-                      'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
-        try:
-            max_value = float(value)
-            return [
-                row for row in data 
-                if float(row.get(rsrp_column, 0)) <= max_value
-            ]
-        except (ValueError, TypeError):
-            return data
-    return data
-
-def apply_auto_detect_filter(data, column, value):
-    value = value.strip()
-    
-    if ',' in value:
-        conditions = [cond.strip() for cond in value.split(',')]
-        filtered_data = data
-        for condition in conditions:
-            if condition:
-                filtered_data = apply_single_auto_filter(filtered_data, column, condition)
-        return filtered_data
-    
-    return apply_single_auto_filter(data, column, value)
-
-def apply_single_auto_filter(data, column, value):
-
-    if value.startswith('>='):
-        return apply_operator_filter(data, column, value[2:], '>=')
-    elif value.startswith('<='):
-        return apply_operator_filter(data, column, value[2:], '<=')
-    elif value.startswith('>'):
-        return apply_operator_filter(data, column, value[1:], '>')
-    elif value.startswith('<'):
-        return apply_operator_filter(data, column, value[1:], '<')
-    
-    elif value.startswith('='):
-        return apply_operator_filter(data, column, value[1:], '=')
-
-    elif value.startswith('!='):
-        return apply_operator_filter(data, column, value[2:], '!=')
-    
-    elif '-' in value and not value.startswith('-') and len(value.split('-')) == 2:
-        parts = value.split('-')
-        try:
-            min_val, max_val = float(parts[0].strip()), float(parts[1].strip())
-            if min_val <= max_val:
-                return apply_range_filter(data, column, min_val, max_val)
-        except (ValueError, TypeError):
-            pass
-        return apply_text_filter(data, column, value)
-    
-    elif '*' in value or '%' in value:
-        return apply_wildcard_filter(data, column, value)
-    
-    elif value.startswith('/') and value.endswith('/') and len(value) > 2:
-        return apply_regex_filter(data, column, value[1:-1])
-    
-    else:
-        return apply_smart_match_filter(data, column, value)
-
-def apply_operator_filter(data, column, value_str, operator):
-    try:
-        threshold = float(value_str.strip())
-        return [
-            row for row in data
-            if compare_values(row.get(column), operator, threshold)
-        ]
-    except (ValueError, TypeError):
-        if operator in ['=', '!=']:
-            target = value_str.strip().lower()
-            if operator == '=':
-                return [
-                    row for row in data
-                    if str(row.get(column, '')).lower() == target
-                ]
-            else:  # !=
-                return [
-                    row for row in data
-                    if str(row.get(column, '')).lower() != target
-                ]
-        return apply_text_filter(data, column, f"{operator}{value_str}")
-
-def apply_range_filter(data, column, min_val, max_val):
-    return [
-        row for row in data
-        if min_val <= float(row.get(column, 0)) <= max_val
-    ]
-
-def apply_wildcard_filter(data, column, pattern):
-    import re
-    regex_pattern = pattern.replace('*', '.*').replace('%', '.*')
-    try:
-        compiled_pattern = re.compile(regex_pattern, re.IGNORECASE)
-        return [
-            row for row in data
-            if compiled_pattern.search(str(row.get(column, '')))
-        ]
-    except re.error:
-        return apply_text_filter(data, column, pattern)
-
-def apply_regex_filter(data, column, pattern):
-    import re
-    try:
-        compiled_pattern = re.compile(pattern, re.IGNORECASE)
-        return [
-            row for row in data
-            if compiled_pattern.search(str(row.get(column, '')))
-        ]
-    except re.error:
-        return []
-
-def apply_smart_match_filter(data, column, value):
-
-    sample_values = [row.get(column) for row in data[:10] if row.get(column)]
-    is_numeric_column = all(
-        isinstance(val, (int, float)) or 
-        (isinstance(val, str) and val.replace('.', '').replace('-', '').isdigit())
-        for val in sample_values if val
-    )
-    
-    if is_numeric_column:
-        try:
-            target_value = float(value)
-            tolerance = 0.01
-            return [
-                row for row in data 
-                if abs(float(row.get(column, 0)) - target_value) <= tolerance
-            ]
-        except (ValueError, TypeError):
-            pass
-    
-    return apply_text_filter(data, column, value)
-
-def compare_values(data_value, operator, threshold):
-    """Enhanced comparison function with better type handling"""
-    try:
-        data_val = float(data_value)
-        if operator == '>':
-            return data_val > threshold
-        elif operator == '>=':
-            return data_val >= threshold
-        elif operator == '<':
-            return data_val < threshold
-        elif operator == '<=':
-            return data_val <= threshold
-        elif operator == '=':
-            return abs(data_val - threshold) <= 0.01 
-        elif operator == '!=':
-            return abs(data_val - threshold) > 0.01
-        return False
-    except (ValueError, TypeError):
-        if operator in ['=', '!=']:
-            data_str = str(data_value).lower()
-            threshold_str = str(threshold).lower()
-            if operator == '=':
-                return data_str == threshold_str
-            else:
-                return data_str != threshold_str
-        return False
-    
-
-#route 
 @app.route('/')
 def home():
     return render_template('home.html')
@@ -1040,6 +788,64 @@ def filter_common_location_rsrp_data():
         'site_id': site_id
     })
 
+@app.route('/filter_common_rsrp_data', methods=['POST'])
+def filter_common_rsrp_data():
+    """Filter RSRP data for all common locations in the unified table"""
+    msisdn = request.form.get('msisdn')
+    if not msisdn:
+        return jsonify({'error': 'MSISDN required'}), 400
+    
+    # Get the MSISDN data to find common locations
+    result = get_msisdn_data(msisdn)
+    if "error" in result:
+        return jsonify({'error': result["error"]}), 404
+    
+    common_locations = result.get('Common Cell Locations', [])
+    if not common_locations:
+        return jsonify({'error': 'No common locations found for this MSISDN'}), 404
+    
+    # Collect all RSRP data from all common locations
+    all_common_rsrp_data = []
+    for loc in common_locations:
+        loc_rsrp_data = loc.get('RSRP_DATA', [])
+        for row in loc_rsrp_data:
+            # Just use the row as-is since we're no longer tracking location
+            all_common_rsrp_data.append(row.copy())
+    
+    if not all_common_rsrp_data:
+        return jsonify({'error': 'No RSRP data found for common locations'}), 404
+    
+    # Apply filters
+    filters = {
+        'Cell_Name': request.form.get('cell_name_filter', ''),
+        'Site_ID': request.form.get('site_id_filter', ''),
+        'Site_Name': request.form.get('site_name_filter', ''),
+        'RSRP Range 1 (>-105dBm) %': request.form.get('rsrp_range1_direct', ''),
+        'RSRP Range 2 (-105~-110dBm) %': request.form.get('rsrp_range2_direct', ''),
+        'RSRP Range 3 (-110~-115dBm) %': request.form.get('rsrp_range3_direct', ''),
+        'RSRP < -115dBm %': request.form.get('rsrp_range4_direct', ''),
+        'RSRP Range 1 (>-105dBm) %_min': request.form.get('rsrp_range1_min', ''),
+        'RSRP Range 1 (>-105dBm) %_max': request.form.get('rsrp_range1_max', ''),
+        'RSRP Range 2 (-105~-110dBm) %_min': request.form.get('rsrp_range2_min', ''),
+        'RSRP Range 2 (-105~-110dBm) %_max': request.form.get('rsrp_range2_max', ''),
+        'RSRP Range 3 (-110~-115dBm) %_min': request.form.get('rsrp_range3_min', ''),
+        'RSRP Range 3 (-110~-115dBm) %_max': request.form.get('rsrp_range3_max', ''),
+        'RSRP < -115dBm %_min': request.form.get('rsrp_range4_min', ''),
+        'RSRP < -115dBm %_max': request.form.get('rsrp_range4_max', '')
+    }
+    
+    sort_by = request.form.get('sort_by', '')
+    sort_order = request.form.get('sort_order', 'asc')
+    
+    # Filter and sort the data using the same logic as recent location
+    filtered_data = filter_and_sort_rsrp_data(all_common_rsrp_data, filters, sort_by, sort_order)
+    
+    return jsonify({
+        'data': filtered_data,
+        'total_count': len(all_common_rsrp_data),
+        'filtered_count': len(filtered_data)
+    })
+
 def fetch_rsrp_data_by_site_id(site_id):
     global zte_rsrp_df, huawei_rsrp_df
     
@@ -1053,7 +859,7 @@ def fetch_rsrp_data_by_site_id(site_id):
     
     site_info = []
     
-    # Process ZTE data
+    # Process ZTE data - values are already in decimal format, need to multiply by 100 for percentage
     for _, rsrp_row in zte_filtered.iterrows():
         site_info.append({
             'Site_Name': rsrp_row['Site Name'],
@@ -1066,7 +872,7 @@ def fetch_rsrp_data_by_site_id(site_id):
             'Source': 'ZTE'
         })
     
-    # Process Huawei data
+    # Process Huawei data - values are already in percentage format, no multiplication needed
     for _, rsrp_row in huawei_filtered.iterrows():
         site_info.append({
             'Site_Name': rsrp_row['Site Name'],
@@ -1080,6 +886,134 @@ def fetch_rsrp_data_by_site_id(site_id):
         })
     
     return site_info
+
+def filter_and_sort_rsrp_data(rsrp_data, filters=None, sort_by=None, sort_order='asc'):
+    if not rsrp_data:
+        return []
+    
+    filtered_data = rsrp_data.copy()
+    
+    if filters:
+        for key, value in filters.items():
+            if value and str(value).strip():
+                filtered_data = apply_type_sensitive_filter(filtered_data, key, value)
+    
+    # Apply sorting
+    if sort_by and sort_by in ['Cell_Name', 'Site_ID', 'Site_Name', 'RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %',
+                               'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
+        try:
+            is_numeric = sort_by in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %',
+                                   'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']
+            
+            if is_numeric:
+                filtered_data.sort(
+                    key=lambda x: float(x.get(sort_by, 0)),
+                    reverse=(sort_order == 'desc')
+                )
+            else:
+                filtered_data.sort(
+                    key=lambda x: str(x.get(sort_by, '')).lower(),
+                    reverse=(sort_order == 'desc')
+                )
+        except (ValueError, TypeError):
+            pass 
+    
+    return filtered_data
+
+def apply_type_sensitive_filter(data, filter_key, filter_value):
+    value_str = str(filter_value).strip()
+    
+    if filter_key in ['Cell_Name', 'Site_ID', 'Site_Name']:
+        return apply_text_filter(data, filter_key, value_str)
+    
+    elif filter_key.endswith('_min'):
+        return apply_numeric_min_filter(data, filter_key, value_str)
+    elif filter_key.endswith('_max'):
+        return apply_numeric_max_filter(data, filter_key, value_str)
+    
+    else:
+        return apply_auto_detect_filter(data, filter_key, value_str)
+
+def apply_text_filter(data, column, value):
+    if value.startswith('='):
+        target = value[1:].lower()
+        return [
+            row for row in data 
+            if str(row.get(column, '')).lower() == target
+        ]
+    
+    elif value.startswith('!='):
+        target = value[2:].lower()
+        return [
+            row for row in data 
+            if str(row.get(column, '')).lower() != target
+        ]
+    
+    elif '*' in value or '%' in value:
+        return apply_wildcard_filter(data, column, value)
+    
+    elif value.startswith('/') and value.endswith('/') and len(value) > 2:
+        return apply_regex_filter(data, column, value[1:-1])
+    
+    else:
+        return [
+            row for row in data 
+            if value.lower() in str(row.get(column, '')).lower()
+        ]
+
+def apply_numeric_min_filter(data, filter_key, value):
+    rsrp_column = filter_key.replace('_min', '')
+    if rsrp_column in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %', 
+                      'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
+        try:
+            min_value = float(value)
+            return [
+                row for row in data 
+                if float(row.get(rsrp_column, 0)) >= min_value
+            ]
+        except (ValueError, TypeError):
+            return data
+    return data
+
+def apply_numeric_max_filter(data, filter_key, value):
+    rsrp_column = filter_key.replace('_max', '')
+    if rsrp_column in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %', 
+                      'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
+        try:
+            max_value = float(value)
+            return [
+                row for row in data 
+                if float(row.get(rsrp_column, 0)) <= max_value
+            ]
+        except (ValueError, TypeError):
+            return data
+    return data
+
+def apply_auto_detect_filter(data, column, value):
+    return apply_text_filter(data, column, value)
+
+def apply_wildcard_filter(data, column, pattern):
+    import re
+    regex_pattern = pattern.replace('*', '.*').replace('%', '.*')
+    try:
+        compiled_pattern = re.compile(regex_pattern, re.IGNORECASE)
+        return [
+            row for row in data
+            if compiled_pattern.search(str(row.get(column, '')))
+        ]
+    except re.error:
+        return apply_text_filter(data, column, pattern)
+
+def apply_regex_filter(data, column, pattern):
+    import re
+    try:
+        compiled_pattern = re.compile(pattern, re.IGNORECASE)
+        return [
+            row for row in data
+            if compiled_pattern.search(str(row.get(column, '')))
+        ]
+    except re.error:
+        return []
 
 dash_app = create_dash_app(app, latest_result)
 
