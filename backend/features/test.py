@@ -217,7 +217,7 @@ def get_user_count(month=None, district=None):
     merged_df = pd.merge(usage_all, VLRD, on="MSISDN", how="inner")
     merged_df["SITE_ID"] = merged_df["CELL_CODE"].astype(str).str[:6]
 
-    district_upper = district.upper() if district else ""       # get district by site name
+    district_upper = district.upper() if district else ""  
     matching_district = None
     if district:
         sitename_match = ref_df[ref_df["sitename"].str.upper() == district_upper]
@@ -464,7 +464,7 @@ def fetch_rsrp_data_directly(cell_code):
 
     site_info = []
     
-    # Process ZTE data - values are in decimal format, need to multiply by 100 for percentage
+    # Process ZTE data 
     for _, rsrp_row in zte_filtered.iterrows():
         site_info.append({
             'Site_Name': rsrp_row['Site Name'],
@@ -476,7 +476,7 @@ def fetch_rsrp_data_directly(cell_code):
             'RSRP < -115dBm %': round(float(rsrp_row['RSRP < -115dBm']) * 100, 2)
         })
     
-    # Process Huawei data - values are already in percentage format, no multiplication needed
+    # Process Huawei data 
     for _, rsrp_row in huawei_filtered.iterrows():
         site_info.append({
             'Site_Name': rsrp_row['Site Name'],
@@ -488,9 +488,95 @@ def fetch_rsrp_data_directly(cell_code):
             'RSRP < -115dBm %': round(float(rsrp_row['RSRP < -115dBm']), 2)
         })
 
+    # Add calculated columns to all entries
+    site_info = add_calculated_rsrp_columns(site_info)
+    
     return site_info
 
-
+def add_calculated_rsrp_columns(rsrp_data):
+    """
+    Add calculated columns to RSRP data:
+    1. Calculate averages for each RSRP range per site
+    2. Create two new columns based on site averages:
+       - Good Signal Avg (Range 1+2): Sum of average RSRP Range 1 and Range 2 for the site
+       - Poor Signal Avg (Range 3+4): Sum of average RSRP Range 3 and Range 4 for the site
+    """
+    if not rsrp_data:
+        return rsrp_data
+    
+    # Group data by Site_Name to calculate averages
+    site_averages = {}
+    
+    # First pass: collect data by site
+    for row in rsrp_data:
+        site_name = row.get('Site_Name', 'Unknown')
+        if site_name not in site_averages:
+            site_averages[site_name] = {
+                'range1_values': [],
+                'range2_values': [],
+                'range3_values': [],
+                'range4_values': []
+            }
+        
+        try:
+            range1 = float(row.get('RSRP Range 1 (>-105dBm) %', 0))
+            range2 = float(row.get('RSRP Range 2 (-105~-110dBm) %', 0))
+            range3 = float(row.get('RSRP Range 3 (-110~-115dBm) %', 0))
+            range4 = float(row.get('RSRP < -115dBm %', 0))
+            
+            site_averages[site_name]['range1_values'].append(range1)
+            site_averages[site_name]['range2_values'].append(range2)
+            site_averages[site_name]['range3_values'].append(range3)
+            site_averages[site_name]['range4_values'].append(range4)
+            
+        except (ValueError, TypeError):
+            # Skip invalid values
+            continue
+    
+    # Calculate averages for each site
+    for site_name in site_averages:
+        site_data = site_averages[site_name]
+        
+        # Calculate averages for each range
+        avg_range1 = sum(site_data['range1_values']) / len(site_data['range1_values']) if site_data['range1_values'] else 0
+        avg_range2 = sum(site_data['range2_values']) / len(site_data['range2_values']) if site_data['range2_values'] else 0
+        avg_range3 = sum(site_data['range3_values']) / len(site_data['range3_values']) if site_data['range3_values'] else 0
+        avg_range4 = sum(site_data['range4_values']) / len(site_data['range4_values']) if site_data['range4_values'] else 0
+        
+        # Store calculated averages
+        site_averages[site_name]['avg_range1'] = round(avg_range1, 2)
+        site_averages[site_name]['avg_range2'] = round(avg_range2, 2)
+        site_averages[site_name]['avg_range3'] = round(avg_range3, 2)
+        site_averages[site_name]['avg_range4'] = round(avg_range4, 2)
+        
+        # Calculate combined averages
+        site_averages[site_name]['good_signal_avg'] = round(avg_range1 + avg_range2, 2)
+        site_averages[site_name]['poor_signal_avg'] = round(avg_range3 + avg_range4, 2)
+    
+    # Second pass: add calculated columns to each row
+    for row in rsrp_data:
+        site_name = row.get('Site_Name', 'Unknown')
+        
+        if site_name in site_averages:
+            # Add the site average-based calculated columns
+            good_signal_avg = site_averages[site_name]['good_signal_avg']
+            poor_signal_avg = site_averages[site_name]['poor_signal_avg']
+            
+            row['Good Signal Avg (Range 1+2) %'] = good_signal_avg
+            row['Poor Signal Avg (Range 3+4) %'] = poor_signal_avg
+            
+            # Add quality assessment column based on comparison
+            if good_signal_avg > poor_signal_avg:
+                row['Signal Quality'] = 'Good'
+            else:
+                row['Signal Quality'] = 'Poor'
+        else:
+            # Fallback values
+            row['Good Signal Avg (Range 1+2) %'] = 0.0
+            row['Poor Signal Avg (Range 3+4) %'] = 0.0
+            row['Signal Quality'] = 'Poor'  # Default to poor when no data
+    
+    return rsrp_data
 
 @app.route('/')
 def home():
@@ -727,7 +813,11 @@ def filter_rsrp_data():
         'RSRP Range 3 (-110~-115dBm) %_min': request.form.get('rsrp_range3_min', ''),
         'RSRP Range 3 (-110~-115dBm) %_max': request.form.get('rsrp_range3_max', ''),
         'RSRP < -115dBm %_min': request.form.get('rsrp_range4_min', ''),
-        'RSRP < -115dBm %_max': request.form.get('rsrp_range4_max', '')
+        'RSRP < -115dBm %_max': request.form.get('rsrp_range4_max', ''),
+        'Good Signal (Range 1+2) %_min': request.form.get('good_signal_min', ''),
+        'Good Signal (Range 1+2) %_max': request.form.get('good_signal_max', ''),
+        'Poor Signal (Range 3+4) %_min': request.form.get('poor_signal_min', ''),
+        'Poor Signal (Range 3+4) %_max': request.form.get('poor_signal_max', '')
     }
     sort_by = request.form.get('sort_by', '')
     sort_order = request.form.get('sort_order', 'asc')
@@ -773,7 +863,11 @@ def filter_common_location_rsrp_data():
         'RSRP Range 3 (-110~-115dBm) %_min': request.form.get('rsrp_range3_min', ''),
         'RSRP Range 3 (-110~-115dBm) %_max': request.form.get('rsrp_range3_max', ''),
         'RSRP < -115dBm %_min': request.form.get('rsrp_range4_min', ''),
-        'RSRP < -115dBm %_max': request.form.get('rsrp_range4_max', '')
+        'RSRP < -115dBm %_max': request.form.get('rsrp_range4_max', ''),
+        'Good Signal (Range 1+2) %_min': request.form.get('good_signal_min', ''),
+        'Good Signal (Range 1+2) %_max': request.form.get('good_signal_max', ''),
+        'Poor Signal (Range 3+4) %_min': request.form.get('poor_signal_min', ''),
+        'Poor Signal (Range 3+4) %_max': request.form.get('poor_signal_max', '')
     }
     sort_by = request.form.get('sort_by', '')
     sort_order = request.form.get('sort_order', 'asc')
@@ -831,7 +925,11 @@ def filter_common_rsrp_data():
         'RSRP Range 3 (-110~-115dBm) %_min': request.form.get('rsrp_range3_min', ''),
         'RSRP Range 3 (-110~-115dBm) %_max': request.form.get('rsrp_range3_max', ''),
         'RSRP < -115dBm %_min': request.form.get('rsrp_range4_min', ''),
-        'RSRP < -115dBm %_max': request.form.get('rsrp_range4_max', '')
+        'RSRP < -115dBm %_max': request.form.get('rsrp_range4_max', ''),
+        'Good Signal (Range 1+2) %_min': request.form.get('good_signal_min', ''),
+        'Good Signal (Range 1+2) %_max': request.form.get('good_signal_max', ''),
+        'Poor Signal (Range 3+4) %_min': request.form.get('poor_signal_min', ''),
+        'Poor Signal (Range 3+4) %_max': request.form.get('poor_signal_max', '')
     }
     
     sort_by = request.form.get('sort_by', '')
@@ -859,7 +957,7 @@ def fetch_rsrp_data_by_site_id(site_id):
     
     site_info = []
     
-    # Process ZTE data - values are already in decimal format, need to multiply by 100 for percentage
+    # Process ZTE data 
     for _, rsrp_row in zte_filtered.iterrows():
         site_info.append({
             'Site_Name': rsrp_row['Site Name'],
@@ -872,7 +970,7 @@ def fetch_rsrp_data_by_site_id(site_id):
             'Source': 'ZTE'
         })
     
-    # Process Huawei data - values are already in percentage format, no multiplication needed
+    # Process Huawei data
     for _, rsrp_row in huawei_filtered.iterrows():
         site_info.append({
             'Site_Name': rsrp_row['Site Name'],
@@ -884,6 +982,9 @@ def fetch_rsrp_data_by_site_id(site_id):
             'RSRP < -115dBm %': round(float(rsrp_row['RSRP < -115dBm']), 2),
             'Source': 'Huawei'
         })
+    
+    # Add calculated columns to all entries
+    site_info = add_calculated_rsrp_columns(site_info)
     
     return site_info
 

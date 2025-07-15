@@ -104,6 +104,21 @@
     .rsrp-table td:nth-child(5),
     .rsrp-table td:nth-child(6),
     .rsrp-table td:nth-child(7) {
+      width: 110px;
+      min-width: 110px;
+      max-width: 110px;
+    }
+
+    .rsrp-table th:nth-child(8),
+    .rsrp-table th:nth-child(9),
+    .rsrp-table th:nth-child(10),
+    .rsrp-table th:nth-child(11),
+    .rsrp-table th:nth-child(12),
+    .rsrp-table td:nth-child(8),
+    .rsrp-table td:nth-child(9),
+    .rsrp-table td:nth-child(10),
+    .rsrp-table td:nth-child(11),
+    .rsrp-table td:nth-child(12) {
       width: 120px;
       min-width: 120px;
       max-width: 120px;
@@ -132,6 +147,37 @@
     .rsrp-data-cell {
       background-color: #ffffff;
       text-align: center;
+    }
+
+    /* Merged average columns styling */
+    .rsrp-table td:nth-child(10),
+    .rsrp-table td:nth-child(11) {
+      background-color: #e3f2fd;
+      font-weight: 600;
+      border-left: 2px solid #2196f3;
+      vertical-align: middle;
+    }
+
+    /* Signal Quality column styling */
+    .rsrp-quality-cell {
+      background-color: #f8f9fa;
+      text-align: center;
+      vertical-align: middle;
+      border-left: 2px solid #6c757d;
+    }
+
+    .rsrp-quality-cell .badge {
+      font-size: 0.9rem;
+      padding: 6px 12px;
+    }
+
+    .rsrp-table tbody tr:hover td:nth-child(10),
+    .rsrp-table tbody tr:hover td:nth-child(11) {
+      background-color: #bbdefb;
+    }
+
+    .rsrp-table tbody tr:hover .rsrp-quality-cell {
+      background-color: #e9ecef;
     }
 
     /* Hover effects */
@@ -189,6 +235,31 @@
       margin-bottom: 1rem;
     }
 
+    /* RSRP Range Color Coding Classes */
+    /* .rsrp-range-excellent {
+      background-color: #d4edda !important;
+      color: #155724 !important;
+      font-weight: 600 !important;
+    }
+
+    .rsrp-range-good {
+      background-color: #d1ecf1 !important;
+      color: #0c5460 !important;
+      font-weight: 600 !important;
+    }
+
+    .rsrp-range-fair {
+      background-color: #fff3cd !important;
+      color: #856404 !important;
+      font-weight: 600 !important;
+    }
+
+    .rsrp-range-poor {
+      background-color: #f8d7da !important;
+      color: #721c24 !important;
+      font-weight: 600 !important;
+    } */
+
     /* Responsive adjustments */
     @media (max-width: 768px) {
       .rsrp-table {
@@ -224,9 +295,24 @@
       .rsrp-table td:nth-child(5),
       .rsrp-table td:nth-child(6),
       .rsrp-table td:nth-child(7) {
-        width: 100px;
-        min-width: 100px;
-        max-width: 100px;
+        width: 90px;
+        min-width: 90px;
+        max-width: 90px;
+      }
+
+      .rsrp-table th:nth-child(8),
+      .rsrp-table th:nth-child(9),
+      .rsrp-table th:nth-child(10),
+      .rsrp-table th:nth-child(11),
+      .rsrp-table th:nth-child(12),
+      .rsrp-table td:nth-child(8),
+      .rsrp-table td:nth-child(9),
+      .rsrp-table td:nth-child(10),
+      .rsrp-table td:nth-child(11),
+      .rsrp-table td:nth-child(12) {
+        width: 95px;
+        min-width: 95px;
+        max-width: 95px;
       }
     }
 
@@ -288,7 +374,6 @@
           Details
         </button>
       </li>
-      <!-- NEW MAP TAB - ADDED -->
       <li class="nav-item" role="presentation">
         <button class="nav-link" id="location-tab" data-bs-toggle="tab" data-bs-target="#location" type="button"
           role="tab" aria-controls="location" aria-selected="false">
@@ -515,7 +600,7 @@
       <div class="tab-pane fade" id="rsrp" role="tabpanel" aria-labelledby="rsrp-tab">
         <div class="card p-4 mt-3">
           <div class="rsrp-section">
-            <h5 class="mb-3">RSRP for Recent Location</h5>            <!-- RSRP Filtering Controls -->
+            <h5 class="mb-3">RSRP for Recent Location</h5>           
             <div class="row mb-3">
               <div class="col-md-12">
                 <div class="rsrp-filter-controls">
@@ -630,6 +715,11 @@
                       </div>
                     </div>
                   </th>
+                  <th></th>
+                  <th></th>
+                  <th>
+                    <div class="text-center">Signal Quality</div>
+                  </th>
                 </tr>
               </thead>
               <tbody id="rsrpTableBody">
@@ -664,6 +754,13 @@
                   <td class="rsrp-data-cell">{{ row['RSRP Range 2 (-105~-110dBm) %'] }}%</td>
                   <td class="rsrp-data-cell">{{ row['RSRP Range 3 (-110~-115dBm) %'] }}%</td>
                   <td class="rsrp-data-cell">{{ row['RSRP < -115dBm %'] }}%</td>
+                  {% if site_name_row_index[0] == 0 %}
+                  <td rowspan="{{ total_site_name_rows }}" class="rsrp-quality-cell">
+                    <span class="badge {% if row.get('Signal Quality', 'Poor') == 'Good' %}bg-success{% else %}bg-danger{% endif %}">
+                      {{ row.get('Signal Quality', 'Poor') }}
+                    </span>
+                  </td>
+                  {% endif %}
                 </tr>
                 {% set _ = site_name_row_index.append(site_name_row_index.pop() + 1) %}
                 {% endfor %}
@@ -671,7 +768,7 @@
                 {% endfor %}
                 {% else %}
                 <tr>
-                  <td colspan="7" class="text-center text-muted">No RSRP data available for this MSISDN</td>
+                  <td colspan="12" class="text-center text-muted">No RSRP data available for this MSISDN</td>
                 </tr>
                 {% endif %}
               </tbody>
@@ -817,6 +914,11 @@
                         </div>
                       </div>
                     </th>
+                    <th></th>
+                    <th></th>
+                    <th>
+                      <div class="text-center">Signal Quality</div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody id="commonRsrpTableBody">
@@ -858,6 +960,13 @@
                         <td class="rsrp-data-cell">{{ row['RSRP Range 2 (-105~-110dBm) %'] }}%</td>
                         <td class="rsrp-data-cell">{{ row['RSRP Range 3 (-110~-115dBm) %'] }}%</td>
                         <td class="rsrp-data-cell">{{ row['RSRP < -115dBm %'] }}%</td>
+                        {% if site_name_row_index[0] == 0 %}
+                        <td rowspan="{{ site_row_count }}" class="rsrp-quality-cell">
+                          <span class="badge {% if row.get('Signal Quality', 'Poor') == 'Good' %}bg-success{% else %}bg-danger{% endif %}">
+                            {{ row.get('Signal Quality', 'Poor') }}
+                          </span>
+                        </td>
+                        {% endif %}
                       </tr>
                       {% set _ = site_name_row_index.append(site_name_row_index.pop() + 1) %}
                       {% endfor %}
@@ -876,401 +985,28 @@
       </div>
     </div>
 
+    <!-- External JavaScript Files -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/rsrp-filters.js') }}"></script>
+    
+    {% if result and result["Monthly Usage"] %}
+    <script id="usage-data" type="application/json">{{ result["Monthly Usage"] | tojson | safe }}</script>
+    {% endif %}
+    
     <script>
-      const usage = JSON.parse('{{ result["Monthly Usage"] | tojson | safe }}');
-
-      // Line Chart (by network type)
-      const networkTraces = ["2G", "3G", "4G", "5G"].map((net) => ({
-        x: usage.months,
-        y: usage[net].map(mb => +(mb / 1024).toFixed(2)),
-        name: net,
-        mode: "lines+markers",
-        type: "scatter",
-      }));
-
-      const networkLayout = {
-        title: "Monthly Data Volume by Network",
-        xaxis: { title: "Month" },
-        yaxis: { title: "Volume (GB)", tickformat: '.2f' },
-      };
-
-      Plotly.newPlot("monthlyVolumeChart", networkTraces, networkLayout, {
-        responsive: true,
+      // Initialize charts with usage data from server
+      document.addEventListener('DOMContentLoaded', function() {
+        const usageDataElement = document.getElementById('usage-data');
+        if (usageDataElement && typeof initializeUsageCharts === 'function') {
+          try {
+            const usage = JSON.parse(usageDataElement.textContent);
+            initializeUsageCharts(usage);
+          } catch (error) {
+            console.error('Error initializing charts:', error);
+          }
+        }
       });
-
-      // Bar Chart (total usage)
-      const totalBarTrace = {
-        x: usage.months,
-        y: usage.Total.map(mb => +(mb / 1024).toFixed(2)),
-        name: "Total Usage",
-        type: "bar",
-        marker: { color: "#007bff" },
-        width: 0.5,
-      };
-
-      const totalLayout = {
-        title: "Total Monthly Data Usage",
-        xaxis: { title: "Month" },
-        yaxis: { title: "Total Volume (GB)", tickformat: '.2f' },
-      };
-
-      Plotly.newPlot("totalVolumeChart", [totalBarTrace], totalLayout, {
-        responsive: true,
-      });
-
-      // Voice Usage Chart
-      const voiceTraces = ["incoming_voice", "outgoing_voice"].map((type) => ({
-        x: usage.months,
-        y: usage[type],
-        name: type === "incoming_voice" ? "Incoming Voice" : "Outgoing Voice",
-        mode: "lines+markers",
-        type: "scatter",
-      }));
-
-      const voiceLayout = {
-        title: "Monthly Voice Usage",
-        xaxis: { title: "Month" },
-        yaxis: { title: "Voice Usage (Minutes)" },
-      };
-
-      Plotly.newPlot("voiceUsageChart", voiceTraces, voiceLayout, {
-        responsive: true,
-      });
-
-      //SMS Usage Chart
-      const smsTraces = ["incoming_sms", "outgoing_sms"].map((type) => ({
-        x: usage.months,
-        y: usage[type],
-        name: type === "incoming_sms" ? "Incoming SMS" : "Outgoing SMS",
-        mode: "lines+markers",
-        type: "scatter",
-      }));
-
-      const smsLayout = {
-        title: "Monthly SMS Usage",
-        xaxis: { title: "Month" },
-        yaxis: { title: "SMS Count" },
-      };
-
-      Plotly.newPlot("smsUsageChart", smsTraces, smsLayout, {
-        responsive: true,
-      });
-    </script>
-
-    <!-- RSRP Filtering JavaScript -->
-    <script>
-      let rsrpFilterTimeout;
-      let commonRsrpFilterTimeout;
-
-      function debounceRsrpFilter() {
-        clearTimeout(rsrpFilterTimeout);
-        rsrpFilterTimeout = setTimeout(() => {
-          applyRsrpFilters();
-        }, 200);
-      }
-
-      function debounceCommonRsrpFilter() {
-        clearTimeout(commonRsrpFilterTimeout);
-        commonRsrpFilterTimeout = setTimeout(() => {
-          applyCommonRsrpFilters();
-        }, 200);
-      }
-
-      function applyRsrpFilters() {
-        const form = document.getElementById('rsrpFilterForm');
-        const formData = new FormData(form);
-
-        const headerInputs = document.querySelectorAll('input[form="rsrpFilterForm"]');
-        headerInputs.forEach(input => {
-          if (input.value.trim()) {
-            formData.set(input.name, input.value);
-          }
-        });
-
-        fetch('/filter_rsrp_data', {
-          method: 'POST',
-          body: formData
-        })
-          .then(response => response.json())
-          .then(data => {
-            if (data.error) {
-              alert('Error: ' + data.error);
-              return;
-            }
-
-            updateRsrpTable(data.data);
-            updateRsrpStatus(data.filtered_count, data.total_count);
-          })
-          .catch(error => {
-            console.error('Error:', error);
-            alert('Error filtering RSRP data');
-          });
-      }
-
-      function applyCommonRsrpFilters() {
-        const form = document.getElementById('commonRsrpFilterForm');
-        const formData = new FormData(form);
-
-        const headerInputs = document.querySelectorAll('input[form="commonRsrpFilterForm"]');
-        headerInputs.forEach(input => {
-          if (input.value.trim()) {
-            formData.set(input.name, input.value);
-          }
-        });
-
-        fetch('/filter_common_rsrp_data', {
-          method: 'POST',
-          body: formData
-        })
-          .then(response => response.json())
-          .then(data => {
-            if (data.error) {
-              alert('Error: ' + data.error);
-              return;
-            }
-
-            updateCommonRsrpTable(data.data);
-            updateCommonRsrpStatus(data.filtered_count, data.total_count);
-          })
-          .catch(error => {
-            console.error('Error:', error);
-            alert('Error filtering common RSRP data');
-          });
-      }
-
-      function clearRsrpFilters() {
-        const form = document.getElementById('rsrpFilterForm');
-        const inputs = form.querySelectorAll('input[type="text"], input[type="number"], select');
-        inputs.forEach(input => {
-          if (input.name !== 'msisdn') {
-            input.value = '';
-          }
-        });
-
-        const headerInputs = document.querySelectorAll('input[form="rsrpFilterForm"]');
-        headerInputs.forEach(input => {
-          input.value = '';
-        });
-
-        location.reload();
-      }
-
-      function clearCommonRsrpFilters() {
-        const form = document.getElementById('commonRsrpFilterForm');
-        const inputs = form.querySelectorAll('input[type="text"], input[type="number"], select');
-        inputs.forEach(input => {
-          if (input.name !== 'msisdn') {
-            input.value = '';
-          }
-        });
-
-        const headerInputs = document.querySelectorAll('input[form="commonRsrpFilterForm"]');
-        headerInputs.forEach(input => {
-          input.value = '';
-        });
-
-        location.reload();
-      }
-
-      function updateRsrpTable(data) {
-        const tbody = document.getElementById('rsrpTableBody');
-        tbody.innerHTML = '';
-
-        if (data.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted"><i class="fas fa-info-circle"></i> No RSRP data matches the current filters</td></tr>';
-          updateRsrpStats(0, 0);
-          return;
-        }
-
-        const groupedData = {};
-        data.forEach(row => {
-          const siteName = row['Site_Name'];
-          const siteId = row['Site_ID'];
-
-          if (!groupedData[siteName]) {
-            groupedData[siteName] = {};
-          }
-          if (!groupedData[siteName][siteId]) {
-            groupedData[siteName][siteId] = [];
-          }
-          groupedData[siteName][siteId].push(row);
-        });
-
-        Object.keys(groupedData).forEach(siteName => {
-          const siteNameGroups = groupedData[siteName];
-          const totalSiteNameRows = Object.values(siteNameGroups).reduce((sum, arr) => sum + arr.length, 0);
-          let siteNameRowIndex = 0;
-
-          Object.keys(siteNameGroups).forEach(siteId => {
-            const siteIdRows = siteNameGroups[siteId];
-
-            siteIdRows.forEach((row, cellIndex) => {
-              const tr = document.createElement('tr');
-              tr.className = 'rsrp-row';
-
-              let html = '';
-
-              if (siteNameRowIndex === 0) {
-                html += `<td rowspan="${totalSiteNameRows}" class="rsrp-site-cell">${siteName}</td>`;
-              }
-
-              if (cellIndex === 0) {
-                html += `<td rowspan="${siteIdRows.length}" class="rsrp-site-id-cell">${siteId}</td>`;
-              }
-
-              const range1 = parseFloat(row['RSRP Range 1 (>-105dBm) %']) || 0;
-              const range2 = parseFloat(row['RSRP Range 2 (-105~-110dBm) %']) || 0;
-              const range3 = parseFloat(row['RSRP Range 3 (-110~-115dBm) %']) || 0;
-              const range4 = parseFloat(row['RSRP < -115dBm %']) || 0;
-
-              html += `
-              <td class="rsrp-cell-name">${row['Cell_Name']}</td>
-              <td class="rsrp-data-cell ${getRsrpRangeClass(range1, 'excellent')}">${range1.toFixed(1)}%</td>
-              <td class="rsrp-data-cell ${getRsrpRangeClass(range2, 'good')}">${range2.toFixed(1)}%</td>
-              <td class="rsrp-data-cell ${getRsrpRangeClass(range3, 'fair')}">${range3.toFixed(1)}%</td>
-              <td class="rsrp-data-cell ${getRsrpRangeClass(range4, 'poor')}">${range4.toFixed(1)}%</td>
-            `;
-
-              tr.innerHTML = html;
-              tbody.appendChild(tr);
-              siteNameRowIndex++;
-            });
-          });
-        });
-
-        updateRsrpStats(data.length, data.length);
-      }
-
-      function updateCommonRsrpTable(data) {
-        const tbody = document.getElementById('commonRsrpTableBody');
-        tbody.innerHTML = '';
-
-        if (data.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted"><i class="fas fa-info-circle"></i> No RSRP data matches the current filters</td></tr>';
-          updateCommonRsrpStats(0, 0);
-          return;
-        }
-
-        const groupedData = {};
-        data.forEach(row => {
-          const siteName = row['Site_Name'];
-          const siteId = row['Site_ID'];
-
-          if (!groupedData[siteName]) {
-            groupedData[siteName] = {};
-          }
-          if (!groupedData[siteName][siteId]) {
-            groupedData[siteName][siteId] = [];
-          }
-          groupedData[siteName][siteId].push(row);
-        });
-
-        Object.keys(groupedData).forEach(siteName => {
-          const siteNameGroups = groupedData[siteName];
-          const totalSiteNameRows = Object.values(siteNameGroups).reduce((sum, arr) => sum + arr.length, 0);
-          let siteNameRowIndex = 0;
-
-          Object.keys(siteNameGroups).forEach(siteId => {
-            const siteIdRows = siteNameGroups[siteId];
-
-            siteIdRows.forEach((row, cellIndex) => {
-              const tr = document.createElement('tr');
-              tr.className = 'rsrp-row';
-
-              let html = '';
-
-              if (siteNameRowIndex === 0) {
-                html += `<td rowspan="${totalSiteNameRows}" class="rsrp-site-cell">${siteName}</td>`;
-              }
-
-              if (cellIndex === 0) {
-                html += `<td rowspan="${siteIdRows.length}" class="rsrp-site-id-cell">${siteId}</td>`;
-              }
-
-              const range1 = parseFloat(row['RSRP Range 1 (>-105dBm) %']) || 0;
-              const range2 = parseFloat(row['RSRP Range 2 (-105~-110dBm) %']) || 0;
-              const range3 = parseFloat(row['RSRP Range 3 (-110~-115dBm) %']) || 0;
-              const range4 = parseFloat(row['RSRP < -115dBm %']) || 0;
-
-              html += `
-              <td class="rsrp-cell-name">${row['Cell_Name']}</td>
-              <td class="rsrp-data-cell ${getRsrpRangeClass(range1, 'excellent')}">${range1.toFixed(1)}%</td>
-              <td class="rsrp-data-cell ${getRsrpRangeClass(range2, 'good')}">${range2.toFixed(1)}%</td>
-              <td class="rsrp-data-cell ${getRsrpRangeClass(range3, 'fair')}">${range3.toFixed(1)}%</td>
-              <td class="rsrp-data-cell ${getRsrpRangeClass(range4, 'poor')}">${range4.toFixed(1)}%</td>
-            `;
-
-              tr.innerHTML = html;
-              tbody.appendChild(tr);
-              siteNameRowIndex++;
-            });
-          });
-        });
-
-        updateCommonRsrpStats(data.length, data.length);
-      }
-
-      function getRsrpRangeClass(value, type) {
-        // Apply color coding based on percentage thresholds
-        if (type === 'excellent' && value > 70) return 'rsrp-range-excellent';
-        if (type === 'good' && value > 60) return 'rsrp-range-good';
-        if (type === 'fair' && value > 50) return 'rsrp-range-fair';
-        if (type === 'poor' && value > 40) return 'rsrp-range-poor';
-        
-        // General color coding for any high values
-        if (value > 80) return 'rsrp-range-excellent';
-        if (value > 60) return 'rsrp-range-good';
-        if (value > 40) return 'rsrp-range-fair';
-        if (value > 20) return 'rsrp-range-poor';
-        
-        return '';
-      }
-
-      function updateRsrpStats(filteredCount, totalCount) {
-        const statsDiv = document.getElementById('rsrpStats');
-        if (statsDiv) {
-          if (filteredCount < totalCount) {
-            statsDiv.innerHTML = `<i class="fas fa-filter"></i> Showing ${filteredCount} of ${totalCount} records`;
-          } else {
-            statsDiv.innerHTML = `<i class="fas fa-table"></i> ${totalCount} records total`;
-          }
-        }
-      }
-
-      function updateCommonRsrpStats(filteredCount, totalCount) {
-        const statsDiv = document.getElementById('commonRsrpStats');
-        if (statsDiv) {
-          if (filteredCount < totalCount) {
-            statsDiv.innerHTML = `<i class="fas fa-filter"></i> Showing ${filteredCount} of ${totalCount} records`;
-          } else {
-            statsDiv.innerHTML = `<i class="fas fa-table"></i> ${totalCount} records total`;
-          }
-        }
-      }
-
-      function updateRsrpStatus(filteredCount, totalCount) {
-        const statusDiv = document.getElementById('rsrpStatus');
-        if (statusDiv) {
-          if (filteredCount < totalCount) {
-            statusDiv.textContent = `Showing ${filteredCount} of ${totalCount} RSRP records (filtered)`;
-          } else {
-            statusDiv.textContent = `Showing all ${totalCount} RSRP records`;
-          }
-        }
-        updateRsrpStats(filteredCount, totalCount);
-      }
-
-      function updateCommonRsrpStatus(filteredCount, totalCount) {
-        const statusDiv = document.getElementById('commonRsrpStatus');
-        if (statusDiv) {
-          if (filteredCount < totalCount) {
-            statusDiv.textContent = `Showing ${filteredCount} of ${totalCount} common location RSRP records (filtered)`;
-          } else {
-            statusDiv.textContent = `Showing all ${totalCount} common location RSRP records`;
-          }
-        }
-        updateCommonRsrpStats(filteredCount, totalCount);
-      }
     </script>
 
     {% elif error %}
