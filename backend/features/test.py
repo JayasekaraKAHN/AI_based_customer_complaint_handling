@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify
+from device_subscriber_insights import get_device_subscriber_insights
 from datetime import timedelta
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.serving import run_simple
@@ -546,7 +547,8 @@ def add_calculated_rsrp_columns(rsrp_data):
 
 @app.route('/')
 def home():
-    return render_template('home.html')
+    insights = get_device_subscriber_insights()
+    return render_template('home.html', insights=insights)
 
 @app.route('/index')
 def index():

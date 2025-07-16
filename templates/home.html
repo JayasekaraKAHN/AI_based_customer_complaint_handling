@@ -23,11 +23,25 @@
       >
         Logout
       </a>
-    <a href="/index" class="btn btn-primary" id="Fetch_MSISDN_details" role="button"
-      >Fetch MSISDN details</a
-    >
-    <a href="/user_count" class="btn btn-secondary" id="Export_VLR_data" role="button"
-      >Export VLR data</a
-    >
+    <div class="container mt-5">
+      <h2 class="mb-4">Navigation</h2>
+      <div class="list-group mb-4">
+        <a href="/index" class="list-group-item list-group-item-action">Fetch MSISDN details</a>
+        <a href="/user_count" class="list-group-item list-group-item-action">Export VLR data</a>
+      </div>
+      <div class="card">
+        <div class="card-header bg-primary text-white">
+          <strong>Device and Subscriber Insights</strong>
+        </div>
+        <div class="card-body">
+          <ul class="list-group list-group-flush">
+            <li class="list-group-item"><strong>Total unique devices (IMEI):</strong> {{ insights.total_unique_devices }}</li>
+            <li class="list-group-item"><strong>Total active subscribers (MSISDN):</strong> {{ insights.total_active_subscribers }}</li>
+            <li class="list-group-item"><strong>Average devices per user:</strong> {{ insights.average_devices_per_user }}</li>
+            <li class="list-group-item"><strong>Top 5 device models:</strong> {{ insights.top_5_device_models | join(', ') }}</li>
+          </ul>
+        </div>
+      </div>
+    </div>
   </body>
 </html>
