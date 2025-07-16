@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify
+from device_subscriber_insights import get_device_subscriber_insights
 from datetime import timedelta
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.serving import run_simple
@@ -19,29 +20,24 @@ app.permanent_session_lifetime = timedelta(minutes=10)
 
 #auto-detect usage files
 def auto_detect_usage_files(data_directory=None):
-    if data_directory is None:
-        data_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data_files'))
-    usage_files = {}    
+    data_directory = data_directory or os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data_files'))
+    usage_files = {}
     try:
         all_files = os.listdir(data_directory)
     except OSError:
         return usage_files
-    
     for filename in all_files:
         match = re.match(r"USERTD_(\d{4})_(\d{2})\.txt", filename)
         if match:
-            year = int(match.group(1))
-            month = int(match.group(2))
+            year, month = int(match.group(1)), int(match.group(2))
             month_name = calendar.month_name[month]
             month_year_key = f"{month_name} {year}"
-            
             usage_files[month_year_key] = {
                 'filename': os.path.join(data_directory, filename),
                 'year': year,
                 'month': month,
                 'month_name': month_name
             }
-            
     return usage_files
 
 #monthly data usge
@@ -49,7 +45,7 @@ def load_usage_data_with_month():
     df_list = []
     for month_year, file_info in USAGE_FILES.items():
         df = pd.read_csv(file_info['filename'], sep="\t")
-        df.columns = [col.upper() for col in df.columns] 
+        df.columns = [col.upper() for col in df.columns]
         df["MONTH"] = month_year
         df_list.append(df)
     return pd.concat(df_list, ignore_index=True)
@@ -203,35 +199,22 @@ def get_user_count(month=None, district=None):
         df.columns = [col.strip().upper() for col in df.columns]
         df["Month"] = m
         df_list.append(df)
-
-    if not df_list:
+    if not df_list or "MSISDN" not in VLRD.columns:
         return pd.DataFrame()
-
     usage_all = pd.concat(df_list, ignore_index=True)
-
-    if "MSISDN" not in VLRD.columns:
-        return pd.DataFrame()
-
     usage_all["MSISDN"] = usage_all["MSISDN"].astype(str)
     VLRD["MSISDN"] = VLRD["MSISDN"].astype(str)
     merged_df = pd.merge(usage_all, VLRD, on="MSISDN", how="inner")
     merged_df["SITE_ID"] = merged_df["CELL_CODE"].astype(str).str[:6]
-
-    district_upper = district.upper() if district else ""  
-    matching_district = None
     if district:
+        district_upper = district.upper()
         sitename_match = ref_df[ref_df["sitename"].str.upper() == district_upper]
         if not sitename_match.empty:
-            matching_district = sitename_match.iloc[0]["district"]
-            district_upper = matching_district.upper()
-
-    if district:
+            district_upper = sitename_match.iloc[0]["district"].upper()
         merged_df = merged_df[merged_df["DISTRICT"].str.upper() == district_upper]
-
     result_df = merged_df.groupby(['DISTRICT', 'SITE_ID'])['MSISDN'].nunique().reset_index()
     result_df.rename(columns={'MSISDN': 'User_Count'}, inplace=True)
-    result_df = result_df.sort_values(by='User_Count', ascending=False)
-    return result_df
+    return result_df.sort_values(by='User_Count', ascending=False)
 
 usage_df = load_usage_data_with_month()
 
@@ -488,26 +471,16 @@ def fetch_rsrp_data_directly(cell_code):
             'RSRP < -115dBm %': round(float(rsrp_row['RSRP < -115dBm']), 2)
         })
 
-    # Add calculated columns to all entries
     site_info = add_calculated_rsrp_columns(site_info)
     
     return site_info
 
 def add_calculated_rsrp_columns(rsrp_data):
-    """
-    Add calculated columns to RSRP data:
-    1. Calculate averages for each RSRP range per site
-    2. Create two new columns based on site averages:
-       - Good Signal Avg (Range 1+2): Sum of average RSRP Range 1 and Range 2 for the site
-       - Poor Signal Avg (Range 3+4): Sum of average RSRP Range 3 and Range 4 for the site
-    """
     if not rsrp_data:
         return rsrp_data
     
-    # Group data by Site_Name to calculate averages
     site_averages = {}
     
-    # First pass: collect data by site
     for row in rsrp_data:
         site_name = row.get('Site_Name', 'Unknown')
         if site_name not in site_averages:
@@ -530,57 +503,52 @@ def add_calculated_rsrp_columns(rsrp_data):
             site_averages[site_name]['range4_values'].append(range4)
             
         except (ValueError, TypeError):
-            # Skip invalid values
             continue
     
-    # Calculate averages for each site
     for site_name in site_averages:
         site_data = site_averages[site_name]
         
-        # Calculate averages for each range
         avg_range1 = sum(site_data['range1_values']) / len(site_data['range1_values']) if site_data['range1_values'] else 0
         avg_range2 = sum(site_data['range2_values']) / len(site_data['range2_values']) if site_data['range2_values'] else 0
         avg_range3 = sum(site_data['range3_values']) / len(site_data['range3_values']) if site_data['range3_values'] else 0
         avg_range4 = sum(site_data['range4_values']) / len(site_data['range4_values']) if site_data['range4_values'] else 0
         
-        # Store calculated averages
         site_averages[site_name]['avg_range1'] = round(avg_range1, 2)
         site_averages[site_name]['avg_range2'] = round(avg_range2, 2)
         site_averages[site_name]['avg_range3'] = round(avg_range3, 2)
         site_averages[site_name]['avg_range4'] = round(avg_range4, 2)
         
-        # Calculate combined averages
         site_averages[site_name]['good_signal_avg'] = round(avg_range1 + avg_range2, 2)
         site_averages[site_name]['poor_signal_avg'] = round(avg_range3 + avg_range4, 2)
     
-    # Second pass: add calculated columns to each row
     for row in rsrp_data:
         site_name = row.get('Site_Name', 'Unknown')
         
         if site_name in site_averages:
-            # Add the site average-based calculated columns
             good_signal_avg = site_averages[site_name]['good_signal_avg']
             poor_signal_avg = site_averages[site_name]['poor_signal_avg']
             
             row['Good Signal Avg (Range 1+2) %'] = good_signal_avg
             row['Poor Signal Avg (Range 3+4) %'] = poor_signal_avg
             
-            # Add quality assessment column based on comparison
             if good_signal_avg > poor_signal_avg:
                 row['Signal Quality'] = 'Good'
             else:
                 row['Signal Quality'] = 'Poor'
         else:
-            # Fallback values
             row['Good Signal Avg (Range 1+2) %'] = 0.0
             row['Poor Signal Avg (Range 3+4) %'] = 0.0
-            row['Signal Quality'] = 'Poor'  # Default to poor when no data
+            row['Signal Quality'] = 'Poor' 
     
     return rsrp_data
 
+
+
+
 @app.route('/')
 def home():
-    return render_template('home.html')
+    insights = get_device_subscriber_insights()
+    return render_template('home.html', insights=insights)
 
 @app.route('/index')
 def index():
@@ -766,7 +734,6 @@ def display_rsrp_ranges_direct(cell_code):
 
 @app.route('/rsrp_by_site_id/<site_id>')
 def get_rsrp_by_site_id(site_id):
-    """Get RSRP data for a specific Site ID - for testing and direct access"""
     try:
         rsrp_data = fetch_rsrp_data_by_site_id(site_id)
         if not rsrp_data:
@@ -991,34 +958,25 @@ def fetch_rsrp_data_by_site_id(site_id):
 def filter_and_sort_rsrp_data(rsrp_data, filters=None, sort_by=None, sort_order='asc'):
     if not rsrp_data:
         return []
-    
     filtered_data = rsrp_data.copy()
-    
     if filters:
         for key, value in filters.items():
             if value and str(value).strip():
                 filtered_data = apply_type_sensitive_filter(filtered_data, key, value)
-    
-    # Apply sorting
-    if sort_by and sort_by in ['Cell_Name', 'Site_ID', 'Site_Name', 'RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %',
-                               'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
+    sortable_cols = [
+        'Cell_Name', 'Site_ID', 'Site_Name',
+        'RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %',
+        'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %'
+    ]
+    if sort_by and sort_by in sortable_cols:
         try:
-            is_numeric = sort_by in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %',
-                                   'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']
-            
-            if is_numeric:
-                filtered_data.sort(
-                    key=lambda x: float(x.get(sort_by, 0)),
-                    reverse=(sort_order == 'desc')
-                )
-            else:
-                filtered_data.sort(
-                    key=lambda x: str(x.get(sort_by, '')).lower(),
-                    reverse=(sort_order == 'desc')
-                )
+            is_numeric = sort_by in sortable_cols[3:]
+            filtered_data.sort(
+                key=lambda x: float(x.get(sort_by, 0)) if is_numeric else str(x.get(sort_by, '')).lower(),
+                reverse=(sort_order == 'desc')
+            )
         except (ValueError, TypeError):
-            pass 
-    
+            pass
     return filtered_data
 
 def apply_type_sensitive_filter(data, filter_key, filter_value):

@@ -3,13 +3,21 @@
 <head>
     
     <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    
+        <script>
+            L_NO_TOUCH = false;
+            L_DISABLE_3D = false;
+        </script>
+    
+    <style>html, body {width: 100%;height: 100%;margin: 0;padding: 0;}</style>
+    <style>#map {position:absolute;top:0;bottom:0;right:0;left:0;}</style>
     <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
-    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css"/>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
@@ -17,7 +25,7 @@
             <meta name="viewport" content="width=device-width,
                 initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
             <style>
-                #map_818d288413c5e28a2e8023e5705ccc76 {
+                #map_c9c5835d1fb8da3eb2dd732efc481909 {
                     position: relative;
                     width: 100.0%;
                     height: 100.0%;
@@ -26,29 +34,6 @@
                 }
                 .leaflet-container { font-size: 1rem; }
             </style>
-
-            <style>html, body {
-                width: 100%;
-                height: 100%;
-                margin: 0;
-                padding: 0;
-            }
-            </style>
-
-            <style>#map {
-                position:absolute;
-                top:0;
-                bottom:0;
-                right:0;
-                left:0;
-                }
-            </style>
-
-            <script>
-                L_NO_TOUCH = false;
-                L_DISABLE_3D = false;
-            </script>
-
         
 </head>
 <body>
@@ -60,29 +45,26 @@
                     font-size: 12px; padding: 10px; border-radius: 5px;
                     box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
         <p style="margin: 5px 0; font-size: 10px; color: #666;">
-            <strong>District:</strong> GL<br>
-            <strong>Region:</strong> GL,HM,MT
+            <strong>District:</strong> KU<br>
+            <strong>Region:</strong> KU,PT
         </p>
         </div>
         
     
-            <div class="folium-map" id="map_818d288413c5e28a2e8023e5705ccc76" ></div>
+            <div class="folium-map" id="map_c9c5835d1fb8da3eb2dd732efc481909" ></div>
         
 </body>
 <script>
     
     
-            var map_818d288413c5e28a2e8023e5705ccc76 = L.map(
-                "map_818d288413c5e28a2e8023e5705ccc76",
+            var map_c9c5835d1fb8da3eb2dd732efc481909 = L.map(
+                "map_c9c5835d1fb8da3eb2dd732efc481909",
                 {
-                    center: [6.11889, 80.3108],
+                    center: [7.912474, 80.240975],
                     crs: L.CRS.EPSG3857,
-                    ...{
-  "zoom": 12,
-  "zoomControl": true,
-  "preferCanvas": false,
-}
-
+                    zoom: 12,
+                    zoomControl: true,
+                    preferCanvas: false,
                 }
             );
 
@@ -90,72 +72,47 @@
 
         
     
-            var tile_layer_f67d3e05d76ac68c77a551bffa918aed = L.tileLayer(
-                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-                {
-  "minZoom": 0,
-  "maxZoom": 19,
-  "maxNativeZoom": 19,
-  "noWrap": false,
-  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors",
-  "subdomains": "abc",
-  "detectRetina": false,
-  "tms": false,
-  "opacity": 1,
-}
-
+            var tile_layer_a0d81dd533db0c464bbb4bb55b44da38 = L.tileLayer(
+                "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                {"attribution": "Data by \u0026copy; \u003ca target=\"_blank\" href=\"http://openstreetmap.org\"\u003eOpenStreetMap\u003c/a\u003e, under \u003ca target=\"_blank\" href=\"http://www.openstreetmap.org/copyright\"\u003eODbL\u003c/a\u003e.", "detectRetina": false, "maxNativeZoom": 18, "maxZoom": 18, "minZoom": 0, "noWrap": false, "opacity": 1, "subdomains": "abc", "tms": false}
             );
         
     
-            tile_layer_f67d3e05d76ac68c77a551bffa918aed.addTo(map_818d288413c5e28a2e8023e5705ccc76);
+                tile_layer_a0d81dd533db0c464bbb4bb55b44da38.addTo(map_c9c5835d1fb8da3eb2dd732efc481909);
+    
+            var marker_8eaca8d6a0e3d376b732c0af147f83e4 = L.marker(
+                [7.912474, 80.240975],
+                {}
+            ).addTo(map_c9c5835d1fb8da3eb2dd732efc481909);
         
     
-            var marker_dd155f69ec6abaa96b22f5407ff77cae = L.marker(
-                [6.11889, 80.3108],
-                {
-}
-            ).addTo(map_818d288413c5e28a2e8023e5705ccc76);
-        
-    
-            var icon_682725819c6e821e2ecf1d9b2316ae83 = L.AwesomeMarkers.icon(
-                {
-  "markerColor": "red",
-  "iconColor": "white",
-  "icon": "user",
-  "prefix": "fa",
-  "extraClasses": "fa-rotate-0",
-}
+            var icon_745f8fd51beb3ee9c274e66edc2a1a10 = L.AwesomeMarkers.icon(
+                {"extraClasses": "fa-rotate-0", "icon": "user", "iconColor": "white", "markerColor": "red", "prefix": "fa"}
             );
+            marker_8eaca8d6a0e3d376b732c0af147f83e4.setIcon(icon_745f8fd51beb3ee9c274e66edc2a1a10);
         
     
-        var popup_d6cd8cc5a03c59b24f338c389a395049 = L.popup({
-  "maxWidth": 320,
-});
+        var popup_afff3fd714ce849ee5eedea9e7119b3b = L.popup({"maxWidth": 320});
 
         
             
-                var html_c39b96562144034939229ddbc95b3c3e = $(`<div id="html_c39b96562144034939229ddbc95b3c3e" style="width: 100.0%; height: 100.0%;">         <div style="width: 280px; font-family: Arial, sans-serif;">             <h5 style="color: #2196F3; background: #E3F2FD; padding: 8px; margin: -5px -5px 10px -5px; border-radius: 4px;">                 📱 User Location             </h5>             <table style="width: 100%; font-size: 12px;">                 <tr><td><strong>MSISDN:</strong></td><td>94714201486</td></tr>                 <tr><td><strong>Site:</strong></td><td>Nevungala</td></tr>                 <tr><td><strong>District:</strong></td><td>GL</td></tr>                 <tr><td><strong>Region:</strong></td><td>GL,HM,MT</td></tr>                 <tr><td><strong>Cell Code:</strong></td><td>GLNVG1C</td></tr>                 <tr><td><strong>LAC:</strong></td><td>63810</td></tr>                 <tr><td><strong>SAC:</strong></td><td>45643</td></tr>                 <tr><td><strong>Coordinates:</strong></td><td>6.11889, 80.3108</td></tr>             </table>         </div>         </div>`)[0];
-                popup_d6cd8cc5a03c59b24f338c389a395049.setContent(html_c39b96562144034939229ddbc95b3c3e);
+                var html_1ab08ddb355004ca4fcbed499a8ce57c = $(`<div id="html_1ab08ddb355004ca4fcbed499a8ce57c" style="width: 100.0%; height: 100.0%;">         <div style="width: 280px; font-family: Arial, sans-serif;">             <h5 style="color: #2196F3; background: #E3F2FD; padding: 8px; margin: -5px -5px 10px -5px; border-radius: 4px;">                 📱 User Location             </h5>             <table style="width: 100%; font-size: 12px;">                 <tr><td><strong>MSISDN:</strong></td><td>94715272921</td></tr>                 <tr><td><strong>Site:</strong></td><td>Ambanpola</td></tr>                 <tr><td><strong>District:</strong></td><td>KU</td></tr>                 <tr><td><strong>Region:</strong></td><td>KU,PT</td></tr>                 <tr><td><strong>Cell Code:</strong></td><td>KUAMB1A</td></tr>                 <tr><td><strong>LAC:</strong></td><td>63940</td></tr>                 <tr><td><strong>SAC:</strong></td><td>19081</td></tr>                 <tr><td><strong>Coordinates:</strong></td><td>7.912474, 80.240975</td></tr>             </table>         </div>         </div>`)[0];
+                popup_afff3fd714ce849ee5eedea9e7119b3b.setContent(html_1ab08ddb355004ca4fcbed499a8ce57c);
             
         
 
-        marker_dd155f69ec6abaa96b22f5407ff77cae.bindPopup(popup_d6cd8cc5a03c59b24f338c389a395049)
+        marker_8eaca8d6a0e3d376b732c0af147f83e4.bindPopup(popup_afff3fd714ce849ee5eedea9e7119b3b)
         ;
 
         
     
     
-            marker_dd155f69ec6abaa96b22f5407ff77cae.bindTooltip(
+            marker_8eaca8d6a0e3d376b732c0af147f83e4.bindTooltip(
                 `<div>
-                     👤 User: 94714201486 | GL
+                     👤 User: 94715272921 | KU
                  </div>`,
-                {
-  "sticky": true,
-}
+                {"sticky": true}
             );
         
-    
-                marker_dd155f69ec6abaa96b22f5407ff77cae.setIcon(icon_682725819c6e821e2ecf1d9b2316ae83);
-            
 </script>
 </html>
