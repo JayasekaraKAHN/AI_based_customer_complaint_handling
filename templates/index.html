@@ -265,7 +265,7 @@
       .rsrp-table {
         font-size: 0.75rem;
       }
-      
+
       .rsrp-table th:nth-child(1),
       .rsrp-table td:nth-child(1) {
         width: 120px;
@@ -392,6 +392,13 @@
           RSRP Data
         </button>
       </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button"
+          role="tab" aria-controls="overview" aria-selected="false">
+          Overview
+        </button>
+      </li>
+
     </ul>
 
     <!-- Tab Content -->
@@ -541,6 +548,20 @@
         </div>
       </div>
 
+      <!-- Overview Tab Content -->
+      <div class="tab-pane fade" id="overview" role="tabpanel" aria-labelledby="overview-tab">
+        <div class="card p-4 mt-3">
+          <h4>Overall Analytics Overview</h4>
+          <div id="overview-analytics">
+            {% if result and result['Overview Analytics'] %}
+            <pre>{{ result['Overview Analytics'] | tojson(indent=2) }}</pre>
+            {% else %}
+            <p class="text-muted">No overview analytics available for this MSISDN.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
       <!-- Location Map Tab Content-->
       <div class="tab-pane fade" id="location" role="tabpanel" aria-labelledby="location-tab">
         <div class="card p-4 mt-3">
@@ -600,200 +621,197 @@
       <div class="tab-pane fade" id="rsrp" role="tabpanel" aria-labelledby="rsrp-tab">
         <div class="card p-4 mt-3">
           <div class="rsrp-section">
-            <h5 class="mb-3">RSRP for Recent Location</h5>           
+            <h5 class="mb-3">RSRP for Recent Location</h5>
             <div class="row mb-3">
               <div class="col-md-12">
                 <div class="rsrp-filter-controls">
                   <form id="rsrpFilterForm">
-                  <input type="hidden" name="msisdn" value="{{ result['MSISDN'] }}">
-                  <div class="row g-2 mb-2">
-                    <div class="col-md-2">
-                      <input type="text" name="cell_name_filter" placeholder="Filter by Cell Name..."
-                        class="form-control form-control-sm"
-                        oninput="debounceRsrpFilter()"
-                        onkeyup="debounceRsrpFilter()">
+                    <input type="hidden" name="msisdn" value="{{ result['MSISDN'] }}">
+                    <div class="row g-2 mb-2">
+                      <div class="col-md-2">
+                        <input type="text" name="cell_name_filter" placeholder="Filter by Cell Name..."
+                          class="form-control form-control-sm" oninput="debounceRsrpFilter()"
+                          onkeyup="debounceRsrpFilter()">
+                      </div>
+                      <div class="col-md-2">
+                        <select name="sort_by" class="form-select form-select-sm" onchange="debounceRsrpFilter()">
+                          <option value="">Sort by...</option>
+                          <!-- <option value="Site_Name">Site Name</option> -->
+                          <option value="Cell_Name">Cell Name</option>
+                          <option value="RSRP Range 1 (>-105dBm) %">RSRP Range 1</option>
+                          <option value="RSRP Range 2 (-105~-110dBm) %">RSRP Range 2</option>
+                          <option value="RSRP Range 3 (-110~-115dBm) %">RSRP Range 3</option>
+                          <option value="RSRP < -115dBm %">RSRP < -115dBm</option>
+                        </select>
+                      </div>
+                      <div class="col-md-2">
+                        <select name="sort_order" class="form-select form-select-sm" onchange="debounceRsrpFilter()">
+                          <option value="asc">Ascending</option>
+                          <option value="desc">Descending</option>
+                        </select>
+                      </div>
+                      <div class="col-md-2">
+                        <button type="button" onclick="clearRsrpFilters()" class="btn btn-secondary btn-sm">Clear
+                          Filters</button>
+                      </div>
                     </div>
-                    <div class="col-md-2">
-                      <select name="sort_by" class="form-select form-select-sm" onchange="debounceRsrpFilter()">
-                        <option value="">Sort by...</option>
-                        <!-- <option value="Site_Name">Site Name</option> -->
-                        <option value="Cell_Name">Cell Name</option>
-                        <option value="RSRP Range 1 (>-105dBm) %">RSRP Range 1</option>
-                        <option value="RSRP Range 2 (-105~-110dBm) %">RSRP Range 2</option>
-                        <option value="RSRP Range 3 (-110~-115dBm) %">RSRP Range 3</option>
-                        <option value="RSRP < -115dBm %">RSRP < -115dBm</option>
-                      </select>
-                    </div>
-                    <div class="col-md-2">
-                      <select name="sort_order" class="form-select form-select-sm" onchange="debounceRsrpFilter()">
-                        <option value="asc">Ascending</option>
-                        <option value="desc">Descending</option>
-                      </select>
-                    </div>
-                    <div class="col-md-2">
-                      <button type="button" onclick="clearRsrpFilters()" class="btn btn-secondary btn-sm">Clear Filters</button>
-                    </div>
-                  </div>
-                </form>
+                  </form>
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- RSRP Table -->
-          <div class="table-responsive">
-            <table class="table table-bordered rsrp-table" id="rsrpTable">
-              <thead>
-                <tr>
-                  <th>Site Name</th>
-                  <th>Site ID</th>
-                  <th>Cell Name</th>
-                  <th>
-                    <div class="text-center">RSRP Range 1 (>-105dBm) %</div>
-                    <div class="mt-2">
-                      <div class="row g-1">
-                        <div class="col-6">
-                          <input type="number" name="rsrp_range1_min" placeholder="Min %" step="0.01"
-                            class="form-control form-control-sm" form="rsrpFilterForm"
-                            oninput="debounceRsrpFilter()">
-                        </div>
-                        <div class="col-6">
-                          <input type="number" name="rsrp_range1_max" placeholder="Max %" step="0.01"
-                            class="form-control form-control-sm" form="rsrpFilterForm"
-                            oninput="debounceRsrpFilter()">
-                        </div>
-                      </div>
-                    </div>
-                  </th>
-                  <th>
-                    <div class="text-center">RSRP Range 2 (-105~-110dBm) %</div>
-                    <div class="mt-2">
-                      <div class="row g-1">
-                        <div class="col-6">
-                          <input type="number" name="rsrp_range2_min" placeholder="Min %" step="0.01"
-                            class="form-control form-control-sm" form="rsrpFilterForm"
-                            oninput="debounceRsrpFilter()">
-                        </div>
-                        <div class="col-6">
-                          <input type="number" name="rsrp_range2_max" placeholder="Max %" step="0.01"
-                            class="form-control form-control-sm" form="rsrpFilterForm"
-                            oninput="debounceRsrpFilter()">
+            <!-- RSRP Table -->
+            <div class="table-responsive">
+              <table class="table table-bordered rsrp-table" id="rsrpTable">
+                <thead>
+                  <tr>
+                    <th>Site Name</th>
+                    <th>Site ID</th>
+                    <th>Cell Name</th>
+                    <th>
+                      <div class="text-center">RSRP Range 1 (>-105dBm) %</div>
+                      <div class="mt-2">
+                        <div class="row g-1">
+                          <div class="col-6">
+                            <input type="number" name="rsrp_range1_min" placeholder="Min %" step="0.01"
+                              class="form-control form-control-sm" form="rsrpFilterForm" oninput="debounceRsrpFilter()">
+                          </div>
+                          <div class="col-6">
+                            <input type="number" name="rsrp_range1_max" placeholder="Max %" step="0.01"
+                              class="form-control form-control-sm" form="rsrpFilterForm" oninput="debounceRsrpFilter()">
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </th>
-                  <th>
-                    <div class="text-center">RSRP Range 3 (-110~-115dBm) %</div>
-                    <div class="mt-2">
-                      <div class="row g-1">
-                        <div class="col-6">
-                          <input type="number" name="rsrp_range3_min" placeholder="Min %" step="0.01"
-                            class="form-control form-control-sm" form="rsrpFilterForm"
-                            oninput="debounceRsrpFilter()">
-                        </div>
-                        <div class="col-6">
-                          <input type="number" name="rsrp_range3_max" placeholder="Max %" step="0.01"
-                            class="form-control form-control-sm" form="rsrpFilterForm"
-                            oninput="debounceRsrpFilter()">
+                    </th>
+                    <th>
+                      <div class="text-center">RSRP Range 2 (-105~-110dBm) %</div>
+                      <div class="mt-2">
+                        <div class="row g-1">
+                          <div class="col-6">
+                            <input type="number" name="rsrp_range2_min" placeholder="Min %" step="0.01"
+                              class="form-control form-control-sm" form="rsrpFilterForm" oninput="debounceRsrpFilter()">
+                          </div>
+                          <div class="col-6">
+                            <input type="number" name="rsrp_range2_max" placeholder="Max %" step="0.01"
+                              class="form-control form-control-sm" form="rsrpFilterForm" oninput="debounceRsrpFilter()">
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </th>
-                  <th>
-                    <div class="text-center">RSRP < -115dBm %</div>
-                    <div class="mt-2">
-                      <div class="row g-1">
-                        <div class="col-6">
-                          <input type="number" name="rsrp_range4_min" placeholder="Min %" step="0.01"
-                            class="form-control form-control-sm" form="rsrpFilterForm"
-                            oninput="debounceRsrpFilter()">
-                        </div>
-                        <div class="col-6">
-                          <input type="number" name="rsrp_range4_max" placeholder="Max %" step="0.01"
-                            class="form-control form-control-sm" form="rsrpFilterForm"
-                            oninput="debounceRsrpFilter()">
+                    </th>
+                    <th>
+                      <div class="text-center">RSRP Range 3 (-110~-115dBm) %</div>
+                      <div class="mt-2">
+                        <div class="row g-1">
+                          <div class="col-6">
+                            <input type="number" name="rsrp_range3_min" placeholder="Min %" step="0.01"
+                              class="form-control form-control-sm" form="rsrpFilterForm" oninput="debounceRsrpFilter()">
+                          </div>
+                          <div class="col-6">
+                            <input type="number" name="rsrp_range3_max" placeholder="Max %" step="0.01"
+                              class="form-control form-control-sm" form="rsrpFilterForm" oninput="debounceRsrpFilter()">
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </th>
-                  <th>
-                    <div class="text-center">Good Signal Avg (Range 1+2) %</div>
-                  </th>
-                  <th>
-                    <div class="text-center">Poor Signal Avg (Range 3+4) %</div>
-                  </th>
-                  <th>
-                    <div class="text-center">Signal Quality</div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody id="rsrpTableBody">
-                {% if result and result['RSRP Data'] %}
-                {% set grouped_rsrp = {} %}
-                {% for row in result['RSRP Data'] %}
-                {% set site_name = row['Site_Name'] %}
-                {% set site_id = row['Site_ID'] %}
-                {% if site_name not in grouped_rsrp %}
-                {% set _ = grouped_rsrp.update({site_name: {}}) %}
-                {% endif %}
-                {% if site_id not in grouped_rsrp[site_name] %}
-                {% set _ = grouped_rsrp[site_name].update({site_id: []}) %}
-                {% endif %}
-                {% set _ = grouped_rsrp[site_name][site_id].append(row) %}
-                {% endfor %}
+                    </th>
+                    <th>
+                      <div class="text-center">RSRP < -115dBm %</div>
+                          <div class="mt-2">
+                            <div class="row g-1">
+                              <div class="col-6">
+                                <input type="number" name="rsrp_range4_min" placeholder="Min %" step="0.01"
+                                  class="form-control form-control-sm" form="rsrpFilterForm"
+                                  oninput="debounceRsrpFilter()">
+                              </div>
+                              <div class="col-6">
+                                <input type="number" name="rsrp_range4_max" placeholder="Max %" step="0.01"
+                                  class="form-control form-control-sm" form="rsrpFilterForm"
+                                  oninput="debounceRsrpFilter()">
+                              </div>
+                            </div>
+                          </div>
+                    </th>
+                    <th>
+                      <div class="text-center">Good Signal Avg (Range 1+2) %</div>
+                    </th>
+                    <th>
+                      <div class="text-center">Poor Signal Avg (Range 3+4) %</div>
+                    </th>
+                    <th>
+                      <div class="text-center">Signal Quality</div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody id="rsrpTableBody">
+                  {% if result and result['RSRP Data'] %}
+                  {% set grouped_rsrp = {} %}
+                  {% for row in result['RSRP Data'] %}
+                  {% set site_name = row['Site_Name'] %}
+                  {% set site_id = row['Site_ID'] %}
+                  {% if site_name not in grouped_rsrp %}
+                  {% set _ = grouped_rsrp.update({site_name: {}}) %}
+                  {% endif %}
+                  {% if site_id not in grouped_rsrp[site_name] %}
+                  {% set _ = grouped_rsrp[site_name].update({site_id: []}) %}
+                  {% endif %}
+                  {% set _ = grouped_rsrp[site_name][site_id].append(row) %}
+                  {% endfor %}
 
-                {% for site_name, site_id_groups in grouped_rsrp.items() %}
-                {% set total_site_name_rows = site_id_groups.values() | map('length') | sum %}
-                {% set site_name_row_index = [0] %}
-                {% for site_id, site_id_rows in site_id_groups.items() %}
-                {% for row in site_id_rows %}
-                <tr>
-                  {% if site_name_row_index[0] == 0 %}
-                  <td rowspan="{{ total_site_name_rows }}" class="rsrp-site-cell">{{ site_name }}</td>
+                  {% for site_name, site_id_groups in grouped_rsrp.items() %}
+                  {% set total_site_name_rows = site_id_groups.values() | map('length') | sum %}
+                  {% set site_name_row_index = [0] %}
+                  {% for site_id, site_id_rows in site_id_groups.items() %}
+                  {% for row in site_id_rows %}
+                  <tr>
+                    {% if site_name_row_index[0] == 0 %}
+                    <td rowspan="{{ total_site_name_rows }}" class="rsrp-site-cell">{{ site_name }}</td>
+                    {% endif %}
+                    {% if loop.index == 1 %}
+                    <td rowspan="{{ site_id_rows|length }}" class="rsrp-site-id-cell">{{ site_id }}</td>
+                    {% endif %}
+                    <td class="rsrp-cell-name">{{ row['Cell_Name'] }}</td>
+                    <td class="rsrp-data-cell">{{ row['RSRP Range 1 (>-105dBm) %'] }}%</td>
+                    <td class="rsrp-data-cell">{{ row['RSRP Range 2 (-105~-110dBm) %'] }}%</td>
+                    <td class="rsrp-data-cell">{{ row['RSRP Range 3 (-110~-115dBm) %'] }}%</td>
+                    <td class="rsrp-data-cell">{{ row['RSRP < -115dBm %'] }}%</td>
+                        {% if site_name_row_index[0] == 0 %}
+                    <td rowspan="{{ total_site_name_rows }}" class="rsrp-data-cell">{{ row.get('Good Signal Avg (Range
+                      1+2) %', 0) }}%</td>
+                    <td rowspan="{{ total_site_name_rows }}" class="rsrp-data-cell">{{ row.get('Poor Signal Avg (Range
+                      3+4) %', 0) }}%</td>
+                    {% endif %}
+                    {% if site_name_row_index[0] == 0 %}
+                    <td rowspan="{{ total_site_name_rows }}" class="rsrp-quality-cell">
+                      <span
+                        class="badge {% if row.get('Signal Quality', 'Poor') == 'Good' %}bg-success{% else %}bg-danger{% endif %}">
+                        {{ row.get('Signal Quality', 'Poor') }}
+                      </span>
+                    </td>
+                    {% endif %}
+                  </tr>
+                  {% set _ = site_name_row_index.append(site_name_row_index.pop() + 1) %}
+                  {% endfor %}
+                  {% endfor %}
+                  {% endfor %}
+                  {% else %}
+                  <tr>
+                    <td colspan="12" class="text-center text-muted">No RSRP data available for this MSISDN</td>
+                  </tr>
                   {% endif %}
-                  {% if loop.index == 1 %}
-                  <td rowspan="{{ site_id_rows|length }}" class="rsrp-site-id-cell">{{ site_id }}</td>
-                  {% endif %}
-                  <td class="rsrp-cell-name">{{ row['Cell_Name'] }}</td>
-                  <td class="rsrp-data-cell">{{ row['RSRP Range 1 (>-105dBm) %'] }}%</td>
-                  <td class="rsrp-data-cell">{{ row['RSRP Range 2 (-105~-110dBm) %'] }}%</td>
-                  <td class="rsrp-data-cell">{{ row['RSRP Range 3 (-110~-115dBm) %'] }}%</td>
-                  <td class="rsrp-data-cell">{{ row['RSRP < -115dBm %'] }}%</td>
-                  {% if site_name_row_index[0] == 0 %}
-                  <td rowspan="{{ total_site_name_rows }}" class="rsrp-data-cell">{{ row.get('Good Signal Avg (Range 1+2) %', 0) }}%</td>
-                  <td rowspan="{{ total_site_name_rows }}" class="rsrp-data-cell">{{ row.get('Poor Signal Avg (Range 3+4) %', 0) }}%</td>
-                  {% endif %}
-                  {% if site_name_row_index[0] == 0 %}
-                  <td rowspan="{{ total_site_name_rows }}" class="rsrp-quality-cell">
-                    <span class="badge {% if row.get('Signal Quality', 'Poor') == 'Good' %}bg-success{% else %}bg-danger{% endif %}">
-                      {{ row.get('Signal Quality', 'Poor') }}
-                    </span>
-                  </td>
-                  {% endif %}
-                </tr>
-                {% set _ = site_name_row_index.append(site_name_row_index.pop() + 1) %}
-                {% endfor %}
-                {% endfor %}
-                {% endfor %}
-                {% else %}
-                <tr>
-                  <td colspan="12" class="text-center text-muted">No RSRP data available for this MSISDN</td>
-                </tr>
-                {% endif %}
-              </tbody>
-            </table>
-            <div id="rsrpStatus" class="rsrp-status"></div>
-          </div>
+                </tbody>
+              </table>
+              <div id="rsrpStatus" class="rsrp-status"></div>
+            </div>
           </div>
 
           <!-- Common Locations RSRP Data -->
           {% if result["Common Cell Locations"] %}
           {% set all_common_rsrp_data = [] %}
           {% for loc in result["Common Cell Locations"] %}
-            {% set loc_rsrp_data = loc.get('RSRP_DATA', []) %}
-            {% for row in loc_rsrp_data %}
-              {% set enhanced_row = row.copy() %}
-              {% set _ = all_common_rsrp_data.append(enhanced_row) %}
-            {% endfor %}
+          {% set loc_rsrp_data = loc.get('RSRP_DATA', []) %}
+          {% for row in loc_rsrp_data %}
+          {% set enhanced_row = row.copy() %}
+          {% set _ = all_common_rsrp_data.append(enhanced_row) %}
+          {% endfor %}
           {% endfor %}
 
           {% if all_common_rsrp_data %}
@@ -810,14 +828,12 @@
                     <div class="row g-2 mb-2">
                       <div class="col-md-2">
                         <input type="text" name="cell_name_filter" placeholder="Filter by Cell Name..."
-                          class="form-control form-control-sm"
-                          oninput="debounceCommonRsrpFilter()"
+                          class="form-control form-control-sm" oninput="debounceCommonRsrpFilter()"
                           onkeyup="debounceCommonRsrpFilter()">
                       </div>
                       <div class="col-md-2">
                         <input type="text" name="site_name_filter" placeholder="Filter by Site Name..."
-                          class="form-control form-control-sm"
-                          oninput="debounceCommonRsrpFilter()"
+                          class="form-control form-control-sm" oninput="debounceCommonRsrpFilter()"
                           onkeyup="debounceCommonRsrpFilter()">
                       </div>
                       <div class="col-md-2">
@@ -832,13 +848,15 @@
                         </select>
                       </div>
                       <div class="col-md-2">
-                        <select name="sort_order" class="form-select form-select-sm" onchange="debounceCommonRsrpFilter()">
+                        <select name="sort_order" class="form-select form-select-sm"
+                          onchange="debounceCommonRsrpFilter()">
                           <option value="asc">Ascending</option>
                           <option value="desc">Descending</option>
                         </select>
                       </div>
                       <div class="col-md-2">
-                        <button type="button" onclick="clearCommonRsrpFilters()" class="btn btn-secondary btn-sm">Clear Filters</button>
+                        <button type="button" onclick="clearCommonRsrpFilters()" class="btn btn-secondary btn-sm">Clear
+                          Filters</button>
                       </div>
                     </div>
                   </form>
@@ -907,23 +925,27 @@
                     </th>
                     <th>
                       <div class="text-center">RSRP < -115dBm %</div>
-                      <div class="mt-2">
-                        <div class="row g-1">
-                          <div class="col-6">
-                            <input type="number" name="rsrp_range4_min" placeholder="Min %" step="0.01"
-                              class="form-control form-control-sm" form="commonRsrpFilterForm"
-                              oninput="debounceCommonRsrpFilter()">
+                          <div class="mt-2">
+                            <div class="row g-1">
+                              <div class="col-6">
+                                <input type="number" name="rsrp_range4_min" placeholder="Min %" step="0.01"
+                                  class="form-control form-control-sm" form="commonRsrpFilterForm"
+                                  oninput="debounceCommonRsrpFilter()">
+                              </div>
+                              <div class="col-6">
+                                <input type="number" name="rsrp_range4_max" placeholder="Max %" step="0.01"
+                                  class="form-control form-control-sm" form="commonRsrpFilterForm"
+                                  oninput="debounceCommonRsrpFilter()">
+                              </div>
+                            </div>
                           </div>
-                          <div class="col-6">
-                            <input type="number" name="rsrp_range4_max" placeholder="Max %" step="0.01"
-                              class="form-control form-control-sm" form="commonRsrpFilterForm"
-                              oninput="debounceCommonRsrpFilter()">
-                          </div>
-                        </div>
-                      </div>
                     </th>
-                    <th></th>
-                    <th></th>
+                    <th>
+                      <div class="text-center">Good Signal Avg (Range 1+2) %</div>
+                    </th>
+                    <th>
+                      <div class="text-center">Poor Signal Avg (Range 3+4) %</div>
+                    </th>
                     <th>
                       <div class="text-center">Signal Quality</div>
                     </th>
@@ -932,57 +954,60 @@
                 <tbody id="commonRsrpTableBody">
                   {% set grouped_rsrp = {} %}
                   {% for row in all_common_rsrp_data %}
-                    {% set site_name = row['Site_Name'] %}
-                    {% set site_id = row['Site_ID'] %}
-                    
-                    {% if site_name not in grouped_rsrp %}
-                      {% set _ = grouped_rsrp.update({site_name: {}}) %}
-                    {% endif %}
-                    {% if site_id not in grouped_rsrp[site_name] %}
-                      {% set _ = grouped_rsrp[site_name].update({site_id: []}) %}
-                    {% endif %}
-                    {% set _ = grouped_rsrp[site_name][site_id].append(row) %}
+                  {% set site_name = row['Site_Name'] %}
+                  {% set site_id = row['Site_ID'] %}
+
+                  {% if site_name not in grouped_rsrp %}
+                  {% set _ = grouped_rsrp.update({site_name: {}}) %}
+                  {% endif %}
+                  {% if site_id not in grouped_rsrp[site_name] %}
+                  {% set _ = grouped_rsrp[site_name].update({site_id: []}) %}
+                  {% endif %}
+                  {% set _ = grouped_rsrp[site_name][site_id].append(row) %}
                   {% endfor %}
 
                   {% for site_name, site_id_groups in grouped_rsrp.items() %}
-                    {% set site_total_rows = [] %}
-                    {% for site_id, site_id_rows in site_id_groups.items() %}
-                      {% for row in site_id_rows %}
-                        {% set _ = site_total_rows.append(1) %}
-                      {% endfor %}
-                    {% endfor %}
-                    {% set site_row_count = site_total_rows|length %}
-                    {% set site_name_row_index = [0] %}
-                    
-                    {% for site_id, site_id_rows in site_id_groups.items() %}
-                      {% for row in site_id_rows %}
-                      <tr>
+                  {% set site_total_rows = [] %}
+                  {% for site_id, site_id_rows in site_id_groups.items() %}
+                  {% for row in site_id_rows %}
+                  {% set _ = site_total_rows.append(1) %}
+                  {% endfor %}
+                  {% endfor %}
+                  {% set site_row_count = site_total_rows|length %}
+                  {% set site_name_row_index = [0] %}
+
+                  {% for site_id, site_id_rows in site_id_groups.items() %}
+                  {% for row in site_id_rows %}
+                  <tr>
+                    {% if site_name_row_index[0] == 0 %}
+                    <td rowspan="{{ site_row_count }}" class="rsrp-site-cell">{{ site_name }}</td>
+                    {% endif %}
+                    {% if loop.index == 1 %}
+                    <td rowspan="{{ site_id_rows|length }}" class="rsrp-site-id-cell">{{ site_id }}</td>
+                    {% endif %}
+                    <td class="rsrp-cell-name">{{ row['Cell_Name'] }}</td>
+                    <td class="rsrp-data-cell">{{ row['RSRP Range 1 (>-105dBm) %'] }}%</td>
+                    <td class="rsrp-data-cell">{{ row['RSRP Range 2 (-105~-110dBm) %'] }}%</td>
+                    <td class="rsrp-data-cell">{{ row['RSRP Range 3 (-110~-115dBm) %'] }}%</td>
+                    <td class="rsrp-data-cell">{{ row['RSRP < -115dBm %'] }}%</td>
                         {% if site_name_row_index[0] == 0 %}
-                        <td rowspan="{{ site_row_count }}" class="rsrp-site-cell">{{ site_name }}</td>
-                        {% endif %}
-                        {% if loop.index == 1 %}
-                        <td rowspan="{{ site_id_rows|length }}" class="rsrp-site-id-cell">{{ site_id }}</td>
-                        {% endif %}
-                        <td class="rsrp-cell-name">{{ row['Cell_Name'] }}</td>
-                        <td class="rsrp-data-cell">{{ row['RSRP Range 1 (>-105dBm) %'] }}%</td>
-                        <td class="rsrp-data-cell">{{ row['RSRP Range 2 (-105~-110dBm) %'] }}%</td>
-                        <td class="rsrp-data-cell">{{ row['RSRP Range 3 (-110~-115dBm) %'] }}%</td>
-                        <td class="rsrp-data-cell">{{ row['RSRP < -115dBm %'] }}%</td>
-                        {% if site_name_row_index[0] == 0 %}
-                        <td rowspan="{{ site_row_count }}" class="rsrp-data-cell">{{ row.get('Good Signal Avg (Range 1+2) %', 0) }}%</td>
-                        <td rowspan="{{ site_row_count }}" class="rsrp-data-cell">{{ row.get('Poor Signal Avg (Range 3+4) %', 0) }}%</td>
-                        {% endif %}
-                        {% if site_name_row_index[0] == 0 %}
-                        <td rowspan="{{ site_row_count }}" class="rsrp-quality-cell">
-                          <span class="badge {% if row.get('Signal Quality', 'Poor') == 'Good' %}bg-success{% else %}bg-danger{% endif %}">
-                            {{ row.get('Signal Quality', 'Poor') }}
-                          </span>
-                        </td>
-                        {% endif %}
-                      </tr>
-                      {% set _ = site_name_row_index.append(site_name_row_index.pop() + 1) %}
-                      {% endfor %}
-                    {% endfor %}
+                    <td rowspan="{{ site_row_count }}" class="rsrp-data-cell">{{ row.get('Good Signal Avg (Range 1+2)
+                      %', 0) }}%</td>
+                    <td rowspan="{{ site_row_count }}" class="rsrp-data-cell">{{ row.get('Poor Signal Avg (Range 3+4)
+                      %', 0) }}%</td>
+                    {% endif %}
+                    {% if site_name_row_index[0] == 0 %}
+                    <td rowspan="{{ site_row_count }}" class="rsrp-quality-cell">
+                      <span
+                        class="badge {% if row.get('Signal Quality', 'Poor') == 'Good' %}bg-success{% else %}bg-danger{% endif %}">
+                        {{ row.get('Signal Quality', 'Poor') }}
+                      </span>
+                    </td>
+                    {% endif %}
+                  </tr>
+                  {% set _ = site_name_row_index.append(site_name_row_index.pop() + 1) %}
+                  {% endfor %}
+                  {% endfor %}
                   {% endfor %}
                 </tbody>
               </table>
@@ -991,44 +1016,44 @@
           </div>
           {% endif %}
           {% endif %}
-          </div>
-        </div>
         </div>
       </div>
     </div>
+  </div>
+  </div>
 
-    <!-- External JavaScript Files -->
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/rsrp-filters.js') }}"></script>
-    
-    {% if result and result["Monthly Usage"] %}
-    <script id="usage-data" type="application/json">{{ result["Monthly Usage"] | tojson | safe }}</script>
-    {% endif %}
-    
-    <script>
-      // Initialize charts with usage data from server
-      document.addEventListener('DOMContentLoaded', function() {
-        const usageDataElement = document.getElementById('usage-data');
-        if (usageDataElement && typeof initializeUsageCharts === 'function') {
-          try {
-            const usage = JSON.parse(usageDataElement.textContent);
-            initializeUsageCharts(usage);
-          } catch (error) {
-            console.error('Error initializing charts:', error);
-          }
+  <!-- External JavaScript Files -->
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/rsrp-filters.js') }}"></script>
+
+  {% if result and result["Monthly Usage"] %}
+  <script id="usage-data" type="application/json">{{ result["Monthly Usage"] | tojson | safe }}</script>
+  {% endif %}
+
+  <script>
+    // Initialize charts with usage data from server
+    document.addEventListener('DOMContentLoaded', function () {
+      const usageDataElement = document.getElementById('usage-data');
+      if (usageDataElement && typeof initializeUsageCharts === 'function') {
+        try {
+          const usage = JSON.parse(usageDataElement.textContent);
+          initializeUsageCharts(usage);
+        } catch (error) {
+          console.error('Error initializing charts:', error);
         }
-      });
-    </script>
+      }
+    });
+  </script>
 
-    {% elif error %}
-    <div class="container mt-4">
-      <div class="alert alert-danger"><strong>Error:</strong> {{ error }}</div>
-    </div>
-    {% endif %}
+  {% elif error %}
+  <div class="container mt-4">
+    <div class="alert alert-danger"><strong>Error:</strong> {{ error }}</div>
+  </div>
+  {% endif %}
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+  <!-- Bootstrap JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>

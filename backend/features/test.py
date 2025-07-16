@@ -470,26 +470,16 @@ def fetch_rsrp_data_directly(cell_code):
             'RSRP < -115dBm %': round(float(rsrp_row['RSRP < -115dBm']), 2)
         })
 
-    # Add calculated columns to all entries
     site_info = add_calculated_rsrp_columns(site_info)
     
     return site_info
 
 def add_calculated_rsrp_columns(rsrp_data):
-    """
-    Add calculated columns to RSRP data:
-    1. Calculate averages for each RSRP range per site
-    2. Create two new columns based on site averages:
-       - Good Signal Avg (Range 1+2): Sum of average RSRP Range 1 and Range 2 for the site
-       - Poor Signal Avg (Range 3+4): Sum of average RSRP Range 3 and Range 4 for the site
-    """
     if not rsrp_data:
         return rsrp_data
     
-    # Group data by Site_Name to calculate averages
     site_averages = {}
     
-    # First pass: collect data by site
     for row in rsrp_data:
         site_name = row.get('Site_Name', 'Unknown')
         if site_name not in site_averages:
@@ -512,53 +502,47 @@ def add_calculated_rsrp_columns(rsrp_data):
             site_averages[site_name]['range4_values'].append(range4)
             
         except (ValueError, TypeError):
-            # Skip invalid values
             continue
     
-    # Calculate averages for each site
     for site_name in site_averages:
         site_data = site_averages[site_name]
         
-        # Calculate averages for each range
         avg_range1 = sum(site_data['range1_values']) / len(site_data['range1_values']) if site_data['range1_values'] else 0
         avg_range2 = sum(site_data['range2_values']) / len(site_data['range2_values']) if site_data['range2_values'] else 0
         avg_range3 = sum(site_data['range3_values']) / len(site_data['range3_values']) if site_data['range3_values'] else 0
         avg_range4 = sum(site_data['range4_values']) / len(site_data['range4_values']) if site_data['range4_values'] else 0
         
-        # Store calculated averages
         site_averages[site_name]['avg_range1'] = round(avg_range1, 2)
         site_averages[site_name]['avg_range2'] = round(avg_range2, 2)
         site_averages[site_name]['avg_range3'] = round(avg_range3, 2)
         site_averages[site_name]['avg_range4'] = round(avg_range4, 2)
         
-        # Calculate combined averages
         site_averages[site_name]['good_signal_avg'] = round(avg_range1 + avg_range2, 2)
         site_averages[site_name]['poor_signal_avg'] = round(avg_range3 + avg_range4, 2)
     
-    # Second pass: add calculated columns to each row
     for row in rsrp_data:
         site_name = row.get('Site_Name', 'Unknown')
         
         if site_name in site_averages:
-            # Add the site average-based calculated columns
             good_signal_avg = site_averages[site_name]['good_signal_avg']
             poor_signal_avg = site_averages[site_name]['poor_signal_avg']
             
             row['Good Signal Avg (Range 1+2) %'] = good_signal_avg
             row['Poor Signal Avg (Range 3+4) %'] = poor_signal_avg
             
-            # Add quality assessment column based on comparison
             if good_signal_avg > poor_signal_avg:
                 row['Signal Quality'] = 'Good'
             else:
                 row['Signal Quality'] = 'Poor'
         else:
-            # Fallback values
             row['Good Signal Avg (Range 1+2) %'] = 0.0
             row['Poor Signal Avg (Range 3+4) %'] = 0.0
-            row['Signal Quality'] = 'Poor'  # Default to poor when no data
+            row['Signal Quality'] = 'Poor' 
     
     return rsrp_data
+
+
+
 
 @app.route('/')
 def home():
@@ -748,7 +732,6 @@ def display_rsrp_ranges_direct(cell_code):
 
 @app.route('/rsrp_by_site_id/<site_id>')
 def get_rsrp_by_site_id(site_id):
-    """Get RSRP data for a specific Site ID - for testing and direct access"""
     try:
         rsrp_data = fetch_rsrp_data_by_site_id(site_id)
         if not rsrp_data:

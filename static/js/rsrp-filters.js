@@ -57,12 +57,8 @@ class RSRPTableManager {
     headerInputs.forEach(input => {
       input.value = '';
     });
-    // Instead of location.reload(), reload the tab content via click
-    if (window.location.hash) {
-      window.location = window.location;
-    } else {
-      window.location.reload();
-    }
+    // Refresh the table after clearing filters
+    this.applyFilters(formType);
   }
 
   updateTable(tbodyId, data) {
