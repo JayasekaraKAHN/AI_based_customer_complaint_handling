@@ -357,14 +357,14 @@
   <!-- Overlay Popup for AI Overview -->
   <div id="ai-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.45); z-index:9999; align-items:center; justify-content:center;">
     <div style="background:#fff; border-radius:12px; max-width:600px; width:90vw; margin:auto; padding:32px 24px; box-shadow:0 8px 32px rgba(0,0,0,0.18); position:relative;">
-      <h4 class="mb-3 text-primary">AI-Based Overview</h4>
+      <h4 class="mb-3 text-primary">Overview</h4>
       <div id="ai-summary-popup-content">
         {% if ai_summary %}
           <pre style="white-space: pre-wrap; word-break: break-word; background: #f8f9fa; border-radius: 6px; padding: 16px; font-size: 1rem; max-height:300px; overflow-y:auto;">{{ ai_summary }}</pre>
         {% else %}
           <div class="text-center">
             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-            <span>Generating AI-based overview...</span>
+            <span>Generating overview...</span>
           </div>
         {% endif %}
       </div>
@@ -379,7 +379,7 @@
     <div class="modal-dialog modal-lg" role="document" style="margin-top: 5vh;">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">AI-Based Overview</h5>
+                <h5 class="modal-title">Overview</h5>
                 <button type="button" class="close" onclick="closeAISummaryPopup()" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -988,19 +988,28 @@
 
                   {% for site_name, site_id_groups in grouped_rsrp.items() %}
                   {% set site_total_rows = [] %}
+                  {% set good_signal_avg = None %}
+                  {% set poor_signal_avg = None %}
+                  {% set signal_quality = None %}
                   {% for site_id, site_id_rows in site_id_groups.items() %}
                   {% for row in site_id_rows %}
                   {% set _ = site_total_rows.append(1) %}
+                  {% if good_signal_avg is none %}
+                  {% set good_signal_avg = row.get('Good Signal Avg (Range 1+2) %', 0) %}
+                  {% endif %}
+                  {% if poor_signal_avg is none %}
+                  {% set poor_signal_avg = row.get('Poor Signal Avg (Range 3+4) %', 0) %}
+                  {% endif %}
+                  {% if signal_quality is none %}
+                  {% set signal_quality = row.get('Signal Quality', 'Poor') %}
+                  {% endif %}
                   {% endfor %}
                   {% endfor %}
                   {% set site_row_count = site_total_rows|length %}
                   {% set site_name_row_index = [0] %}
-                  {% set first_row = None %}
+
                   {% for site_id, site_id_rows in site_id_groups.items() %}
                   {% for row in site_id_rows %}
-                  {% if first_row is none %}
-                  {% set first_row = row %}
-                  {% endif %}
                   <tr>
                     {% if site_name_row_index[0] == 0 %}
                     <td rowspan="{{ site_row_count }}" class="rsrp-site-cell">{{ site_name }}</td>
@@ -1014,14 +1023,14 @@
                     <td class="rsrp-data-cell">{{ row['RSRP Range 3 (-110~-115dBm) %'] }}%</td>
                     <td class="rsrp-data-cell">{{ row['RSRP < -115dBm %'] }}%</td>
                         {% if site_name_row_index[0] == 0 %}
-                    <td rowspan="{{ site_row_count }}" class="rsrp-data-cell">{{ first_row.get('Good Signal Avg (Range 1+2) %', 0) }}%</td>
-                    <td rowspan="{{ site_row_count }}" class="rsrp-data-cell">{{ first_row.get('Poor Signal Avg (Range 3+4) %', 0) }}%</td>
+                    <td rowspan="{{ site_row_count }}" class="rsrp-data-cell">{{ good_signal_avg }}%</td>
+                    <td rowspan="{{ site_row_count }}" class="rsrp-data-cell">{{ poor_signal_avg }}%</td>
                     {% endif %}
                     {% if site_name_row_index[0] == 0 %}
                     <td rowspan="{{ site_row_count }}" class="rsrp-quality-cell">
                       <span
-                        class="badge {% if first_row.get('Signal Quality', 'Poor') == 'Good' %}bg-success{% else %}bg-danger{% endif %}">
-                        {{ first_row.get('Signal Quality', 'Poor') }}
+                        class="badge {% if signal_quality == 'Good' %}bg-success{% else %}bg-danger{% endif %}">
+                        {{ signal_quality }}
                       </span>
                     </td>
                     {% endif %}
