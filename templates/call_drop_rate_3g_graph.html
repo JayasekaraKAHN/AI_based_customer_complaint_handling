@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3G Call Drop Rate Graph</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <h2>3G Call Drop Rate Over Time</h2>
+    <div id="call-drop-rate-graph" style="width:100%;max-width:900px;height:500px;"></div>
+    <script>
+        fetch('/call-drop-rate-3g-data')
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById('call-drop-rate-graph').innerText = data.error;
+                    return;
+                }
+                const trace = {
+                    x: data.x,
+                    y: data.y,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: '3G Call Drop Rate',
+                    line: { color: '#1f77b4', width: 2 }
+                };
+                const layout = {
+                    title: '3G Call Drop Rate (2014+)',
+                    xaxis: { title: data.date_col || 'Date' },
+                    yaxis: { title: data.drop_col || 'Drop Rate (%)' }
+                };
+                Plotly.newPlot('call-drop-rate-graph', [trace], layout, {responsive: true});
+            })
+            .catch(err => {
+                document.getElementById('call-drop-rate-graph').innerText = 'Error loading data.';
+            });
+    </script>
+</body>
+</html>
