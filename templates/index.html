@@ -96,12 +96,6 @@
       max-width: 160px;
     }
 
-    .rsrp-table th:nth-child(4),
-    .rsrp-table th:nth-child(5),
-    .rsrp-table th:nth-child(6),
-    .rsrp-table th:nth-child(7),
-    .rsrp-table td:nth-child(4),
-    .rsrp-table td:nth-child(5),
     .rsrp-table td:nth-child(6),
     .rsrp-table td:nth-child(7) {
       width: 110px;
@@ -316,10 +310,6 @@
       }
     }
 
-
-
-
-
     /* Range Filter Styling */
     .range-filter-group {
       border: 1px solid #e9ecef;
@@ -353,16 +343,56 @@
     <div class="col-md-6 offset-md-3">
       <div class="card p-4 shadow-sm">
         <h2 class="mb-4">Enter MSISDN to Retrieve Information</h2>
-        <form action="/search" method="POST">
+        <form id="search-form" action="/search" method="POST">
           <div class="mb-3">
             <label for="msisdn" class="form-label">MSISDN</label>
             <input type="text" class="form-control" id="msisdn" name="msisdn" required />
           </div>
-          <button type="submit" class="btn btn-primary w-100">Search</button>
+          <button type="submit" class="btn btn-primary w-100" id="search-btn">Search</button>
         </form>
       </div>
     </div>
   </div>
+
+  <!-- Overlay Popup for AI Overview -->
+  <div id="ai-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.45); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:12px; max-width:600px; width:90vw; margin:auto; padding:32px 24px; box-shadow:0 8px 32px rgba(0,0,0,0.18); position:relative;">
+      <h4 class="mb-3 text-primary">AI-Based Overview</h4>
+      <div id="ai-summary-popup-content">
+        {% if ai_summary %}
+          <pre style="white-space: pre-wrap; word-break: break-word; background: #f8f9fa; border-radius: 6px; padding: 16px; font-size: 1rem; max-height:300px; overflow-y:auto;">{{ ai_summary }}</pre>
+        {% else %}
+          <div class="text-center">
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <span>Generating AI-based overview...</span>
+          </div>
+        {% endif %}
+      </div>
+      <div class="mt-4 text-center">
+        <button class="btn btn-outline-secondary" onclick="closeAIPopup()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overlayed AI Summary Popup -->
+  <div id="aiSummaryPopup" class="modal" tabindex="-1" role="dialog" style="display: none; position: fixed; z-index: 9999; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.45);">
+    <div class="modal-dialog modal-lg" role="document" style="margin-top: 5vh;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">AI-Based Overview</h5>
+                <button type="button" class="close" onclick="closeAISummaryPopup()" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <pre id="aiSummaryContent" style="white-space: pre-wrap; font-size: 1rem; background: #f8f9fa; border-radius: 6px; padding: 1rem;">{{ ai_summary }}</pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeAISummaryPopup()">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 
   {% if result %}
   <div class="container-fluid px-4 mt-4">
@@ -390,12 +420,6 @@
         <button class="nav-link" id="rsrp-tab" data-bs-toggle="tab" data-bs-target="#rsrp" type="button" role="tab"
           aria-controls="rsrp" aria-selected="false">
           RSRP Data
-        </button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button class="nav-link" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button"
-          role="tab" aria-controls="overview" aria-selected="false">
-          Overview
         </button>
       </li>
 
@@ -548,19 +572,6 @@
         </div>
       </div>
 
-      <!-- Overview Tab Content -->
-      <div class="tab-pane fade" id="overview" role="tabpanel" aria-labelledby="overview-tab">
-        <div class="card p-4 mt-3">
-          <h4>Overall Analytics Overview</h4>
-          <div id="overview-analytics">
-            {% if result and result['Overview Analytics'] %}
-            <pre>{{ result['Overview Analytics'] | tojson(indent=2) }}</pre>
-            {% else %}
-            <p class="text-muted">No overview analytics available for this MSISDN.</p>
-            {% endif %}
-          </div>
-        </div>
-      </div>
 
       <!-- Location Map Tab Content-->
       <div class="tab-pane fade" id="location" role="tabpanel" aria-labelledby="location-tab">
@@ -759,8 +770,20 @@
                   {% for site_name, site_id_groups in grouped_rsrp.items() %}
                   {% set total_site_name_rows = site_id_groups.values() | map('length') | sum %}
                   {% set site_name_row_index = [0] %}
+                  {% set good_signal_avg = None %}
+                  {% set poor_signal_avg = None %}
+                  {% set signal_quality = None %}
                   {% for site_id, site_id_rows in site_id_groups.items() %}
                   {% for row in site_id_rows %}
+                  {% if good_signal_avg is none %}
+                  {% set good_signal_avg = row.get('Good Signal Avg (Range 1+2) %', 0) %}
+                  {% endif %}
+                  {% if poor_signal_avg is none %}
+                  {% set poor_signal_avg = row.get('Poor Signal Avg (Range 3+4) %', 0) %}
+                  {% endif %}
+                  {% if signal_quality is none %}
+                  {% set signal_quality = row.get('Signal Quality', 'Poor') %}
+                  {% endif %}
                   <tr>
                     {% if site_name_row_index[0] == 0 %}
                     <td rowspan="{{ total_site_name_rows }}" class="rsrp-site-cell">{{ site_name }}</td>
@@ -774,16 +797,14 @@
                     <td class="rsrp-data-cell">{{ row['RSRP Range 3 (-110~-115dBm) %'] }}%</td>
                     <td class="rsrp-data-cell">{{ row['RSRP < -115dBm %'] }}%</td>
                         {% if site_name_row_index[0] == 0 %}
-                    <td rowspan="{{ total_site_name_rows }}" class="rsrp-data-cell">{{ row.get('Good Signal Avg (Range
-                      1+2) %', 0) }}%</td>
-                    <td rowspan="{{ total_site_name_rows }}" class="rsrp-data-cell">{{ row.get('Poor Signal Avg (Range
-                      3+4) %', 0) }}%</td>
+                    <td rowspan="{{ total_site_name_rows }}" class="rsrp-data-cell">{{ good_signal_avg }}%</td>
+                    <td rowspan="{{ total_site_name_rows }}" class="rsrp-data-cell">{{ poor_signal_avg }}%</td>
                     {% endif %}
                     {% if site_name_row_index[0] == 0 %}
                     <td rowspan="{{ total_site_name_rows }}" class="rsrp-quality-cell">
                       <span
-                        class="badge {% if row.get('Signal Quality', 'Poor') == 'Good' %}bg-success{% else %}bg-danger{% endif %}">
-                        {{ row.get('Signal Quality', 'Poor') }}
+                        class="badge {% if signal_quality == 'Good' %}bg-success{% else %}bg-danger{% endif %}">
+                        {{ signal_quality }}
                       </span>
                     </td>
                     {% endif %}
@@ -956,7 +977,6 @@
                   {% for row in all_common_rsrp_data %}
                   {% set site_name = row['Site_Name'] %}
                   {% set site_id = row['Site_ID'] %}
-
                   {% if site_name not in grouped_rsrp %}
                   {% set _ = grouped_rsrp.update({site_name: {}}) %}
                   {% endif %}
@@ -975,9 +995,12 @@
                   {% endfor %}
                   {% set site_row_count = site_total_rows|length %}
                   {% set site_name_row_index = [0] %}
-
+                  {% set first_row = None %}
                   {% for site_id, site_id_rows in site_id_groups.items() %}
                   {% for row in site_id_rows %}
+                  {% if first_row is none %}
+                  {% set first_row = row %}
+                  {% endif %}
                   <tr>
                     {% if site_name_row_index[0] == 0 %}
                     <td rowspan="{{ site_row_count }}" class="rsrp-site-cell">{{ site_name }}</td>
@@ -991,16 +1014,14 @@
                     <td class="rsrp-data-cell">{{ row['RSRP Range 3 (-110~-115dBm) %'] }}%</td>
                     <td class="rsrp-data-cell">{{ row['RSRP < -115dBm %'] }}%</td>
                         {% if site_name_row_index[0] == 0 %}
-                    <td rowspan="{{ site_row_count }}" class="rsrp-data-cell">{{ row.get('Good Signal Avg (Range 1+2)
-                      %', 0) }}%</td>
-                    <td rowspan="{{ site_row_count }}" class="rsrp-data-cell">{{ row.get('Poor Signal Avg (Range 3+4)
-                      %', 0) }}%</td>
+                    <td rowspan="{{ site_row_count }}" class="rsrp-data-cell">{{ first_row.get('Good Signal Avg (Range 1+2) %', 0) }}%</td>
+                    <td rowspan="{{ site_row_count }}" class="rsrp-data-cell">{{ first_row.get('Poor Signal Avg (Range 3+4) %', 0) }}%</td>
                     {% endif %}
                     {% if site_name_row_index[0] == 0 %}
                     <td rowspan="{{ site_row_count }}" class="rsrp-quality-cell">
                       <span
-                        class="badge {% if row.get('Signal Quality', 'Poor') == 'Good' %}bg-success{% else %}bg-danger{% endif %}">
-                        {{ row.get('Signal Quality', 'Poor') }}
+                        class="badge {% if first_row.get('Signal Quality', 'Poor') == 'Good' %}bg-success{% else %}bg-danger{% endif %}">
+                        {{ first_row.get('Signal Quality', 'Poor') }}
                       </span>
                     </td>
                     {% endif %}
@@ -1054,6 +1075,124 @@
 
   <!-- Bootstrap JS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+</body>
+
+<script>
+// Show overlay popup and fetch AI summary via SSE
+function showAIPopup() {
+    document.getElementById('ai-overlay').style.display = 'flex';
+}
+
+// Polyfill for EventSource with POST (since native EventSource only supports GET)
+class EventSourcePolyfill {
+    constructor(url, options) {
+        this.url = url;
+        this.options = options || {};
+        this.listeners = {};
+        this.closed = false;
+        this._start();
+    }
+    _start() {
+        this.xhr = new XMLHttpRequest();
+        this.xhr.open('POST', this.url, true);
+        if (this.options.headers) {
+            for (const k in this.options.headers) {
+                this.xhr.setRequestHeader(k, this.options.headers[k]);
+            }
+        }
+        this.xhr.setRequestHeader('Accept', 'text/event-stream');
+        this.xhr.onreadystatechange = () => {
+            if (this.xhr.readyState === 3 || this.xhr.readyState === 4) {
+                const lines = this.xhr.responseText.split(/\r?\n\r?\n/);
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const data = line.slice(6);
+                        if (this.onmessage) this.onmessage({ data });
+                    } else if (line.startsWith('event: end')) {
+                        if (this.listeners['end']) {
+                            for (const fn of this.listeners['end']) fn();
+                        }
+                    }
+                }
+            }
+        };
+        this.xhr.onerror = () => {
+            if (this.onerror) this.onerror();
+        };
+        this.xhr.send(this.options.payload || null);
+    }
+    addEventListener(event, fn) {
+        if (!this.listeners[event]) this.listeners[event] = [];
+        this.listeners[event].push(fn);
+    }
+    close() {
+        this.closed = true;
+        if (this.xhr) this.xhr.abort();
+    }
+}
+
+// Details tab navigation from popup
+// Removed navigation to details tab from popup
+function closeAIPopup() {
+    document.getElementById('ai-overlay').style.display = 'none';
+    if (window.aiSummaryEventSource) {
+        window.aiSummaryEventSource.close();
+    }
+}
+
+// Intercept search form submit to show popup
+document.addEventListener('DOMContentLoaded', function() {
+    const searchForm = document.getElementById('search-form');
+    if (searchForm) {
+        searchForm.addEventListener('submit', function(e) {
+            // Show popup immediately after form submit
+            setTimeout(function() {
+                showAIPopup();
+            }, 50);
+        });
+    }
+});
+
+    // Show AI Summary Popup after search
+    function showAISummaryPopup() {
+        document.getElementById('aiSummaryPopup').style.display = 'block';
+    }
+
+    function closeAISummaryPopup() {
+        document.getElementById('aiSummaryPopup').style.display = 'none';
+    }
+
+    // Show popup if AI summary is present and prevent auto-close
+    function showPopupIfSummaryPresent() {
+        var aiSummary = document.getElementById('aiSummaryContent');
+        if (aiSummary && aiSummary.textContent.trim().length > 0) {
+            showAISummaryPopup();
+        }
+    }
+
+    // Show popup instantly after page load (search result)
+    document.addEventListener('DOMContentLoaded', function() {
+        showPopupIfSummaryPresent();
+    });
+
+// Add button to navigate back to AI Overview popup
+function showOverviewPopup() {
+    // Show the overlayed AI summary popup
+    showAISummaryPopup();
+}
+
+// Add the button to the tab navigation area (Details tab)
+document.addEventListener('DOMContentLoaded', function() {
+    var detailsTab = document.getElementById('details-tab');
+    if (detailsTab) {
+        var overviewBtn = document.createElement('button');
+        overviewBtn.className = 'btn btn-outline-primary ms-3';
+        overviewBtn.innerText = 'Show AI Overview';
+        overviewBtn.onclick = showOverviewPopup;
+        detailsTab.parentNode.appendChild(overviewBtn);
+    }
+});
+</script>
 </body>
 
 </html>

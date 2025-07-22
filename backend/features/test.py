@@ -1,3 +1,4 @@
+
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify
 from device_subscriber_insights import get_device_subscriber_insights
 from datetime import timedelta
@@ -10,6 +11,10 @@ import io
 import os
 import folium
 import calendar
+#AI Summarization Imports
+from transformers import pipeline
+import numpy as np
+
 
 template_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'templates'))
 static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'static'))
@@ -64,6 +69,13 @@ USERTD = load_usage_data_with_month()
 # Load reference data
 ref_df = pd.read_csv(REFERENCE_FILE)
 tac_df = pd.read_csv(TAC_FILE, low_memory=False)
+
+# Load BART summarization pipeline (load once at startup)
+try:
+    summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
+except Exception as e:
+    summarizer = None
+    print(f"[AI Summary] Error loading BART model: {e}")
 
 #display user location on map
 def create_location_map(result_data):
@@ -543,6 +555,186 @@ def add_calculated_rsrp_columns(rsrp_data):
     return rsrp_data
 
 
+# --- Rule-Based Pattern Analysis ---
+def rule_based_pattern_analysis(user_metrics):
+    monthly_usage = user_metrics.get('Monthly Usage', {})
+    months = monthly_usage.get('months', [])
+    total_usage = monthly_usage.get('Total', [])
+    outgoing_voice = monthly_usage.get('outgoing_voice', [])
+    incoming_voice = monthly_usage.get('incoming_voice', [])
+    outgoing_sms = monthly_usage.get('outgoing_sms', [])
+    incoming_sms = monthly_usage.get('incoming_sms', [])
+    device = f"{user_metrics.get('Brand', 'Unknown')} {user_metrics.get('Model', 'Unknown')}"
+    location = f"{user_metrics.get('District', 'Unknown')} district, {user_metrics.get('Region', 'Unknown')} region"
+
+    suggestions = []
+    patterns = []
+
+    # Detect high/low usage
+    if total_usage:
+        avg_usage = np.mean(total_usage)
+        max_usage = max(total_usage)
+        min_usage = min(total_usage)
+        if max_usage > avg_usage:
+            patterns.append("Significant spike in data usage detected in some months.")
+        if min_usage < avg_usage:
+            patterns.append("Some months show very low data usage.")
+        if avg_usage > 5000:
+            suggestions.append("Consider a higher data plan to save costs.")
+        elif avg_usage < 500:
+            suggestions.append("Current plan may be more than needed; consider downgrading.")
+
+    # Detect voice/SMS patterns
+    total_voice = sum(outgoing_voice) + sum(incoming_voice)
+    total_sms = sum(outgoing_sms) + sum(incoming_sms)
+    if total_voice > 1000:
+        patterns.append("Heavy voice call activity detected.")
+    if total_sms > 500:
+        patterns.append("Frequent SMS usage detected.")
+    if total_voice < 100 and total_sms < 50:
+        patterns.append("Low voice and SMS activity.")
+
+    # Device age
+    year_released = user_metrics.get('Year Released', None)
+    if year_released and str(year_released).isdigit():
+        try:
+            year_released = int(year_released)
+            if year_released < 2022:
+                suggestions.append("Consider upgrading to a newer device for better performance and features.")
+        except Exception:
+            pass
+
+    return {
+        'patterns': patterns,
+        'suggestions': suggestions
+    }
+
+# --- Personalized Recommendation Engine (Placeholder) ---
+def personalized_recommendations(user_metrics):
+    return ["Try Mobitel's new Unlimited Data Plan for heavy users!", "Upgrade to a 5G device for better speeds."]
+
+# --- LLM-Based Summarization ---
+def generate_overall_msisdn_summary(user_metrics: dict) -> str:
+    if summarizer is None:
+        return "AI summarizer not available. Please check model installation."
+
+    msisdn = user_metrics.get('MSISDN', 'Unknown')
+    brand = user_metrics.get('Brand', 'Unknown')
+    model = user_metrics.get('Model', 'Unknown')
+    district = user_metrics.get('District', 'Unknown')
+    region = user_metrics.get('Region', 'Unknown')
+    monthly_usage = user_metrics.get('Monthly Usage', {})
+    months = monthly_usage.get('months', [])
+    total_usage = monthly_usage.get('Total', [])
+    sim_type = user_metrics.get('SIM Type', 'Unknown')
+    connection_type = user_metrics.get('Connection Type', 'Unknown')
+    year_released = user_metrics.get('Year Released', 'Unknown')
+    device_type = user_metrics.get('Device Type', 'Unknown')
+    volte = user_metrics.get('VoLTE', 'Unknown')
+    technology = user_metrics.get('Technology', 'Unknown')
+    tac = user_metrics.get('TAC', 'Unknown')
+    imei = user_metrics.get('IMEI', 'Unknown')
+    imsi = user_metrics.get('IMSI', 'Unknown')
+    sitename = user_metrics.get('Sitename', 'Unknown')
+    cellcode = user_metrics.get('Cellcode', 'Unknown')
+    lon = user_metrics.get('Lon', 'Unknown')
+    lat = user_metrics.get('Lat', 'Unknown')
+    os_name = user_metrics.get('OS', 'Unknown')
+    marketing_name = user_metrics.get('Marketing Name', 'Unknown')
+    primary_hardware_type = user_metrics.get('Primary Hardware Type', 'Unknown')
+
+    # Build a more detailed, readable, point-wise usage summary
+    usage_lines = []
+    for m, t in zip(months, total_usage):
+        usage_lines.append(f"- {m}: {t} MB data usage")
+    usage_str = "\n".join(usage_lines) if usage_lines else "No usage data."
+
+    outgoing_voice = monthly_usage.get('outgoing_voice', [])
+    incoming_voice = monthly_usage.get('incoming_voice', [])
+    outgoing_sms = monthly_usage.get('outgoing_sms', [])
+    incoming_sms = monthly_usage.get('incoming_sms', [])
+
+    voice_sms_lines = []
+    for i, m in enumerate(months):
+        voice = (outgoing_voice[i] if i < len(outgoing_voice) else 0) + (incoming_voice[i] if i < len(incoming_voice) else 0)
+        sms = (outgoing_sms[i] if i < len(outgoing_sms) else 0) + (incoming_sms[i] if i < len(incoming_sms) else 0)
+        voice_sms_lines.append(f"- {m}: {voice} mins voice, {sms} SMS")
+    voice_sms_str = "\n".join(voice_sms_lines) if voice_sms_lines else "No voice/SMS data."
+
+    # --- Detailed MSISDN Data Section ---
+    details_section = (
+        f"[MSISDN Detailed Data]\n"
+        f"- Mobile number: {msisdn}\n"
+        f"- IMSI: {imsi}\n"
+        f"- IMEI: {imei}\n"
+        f"- SIM Type: {sim_type}\n"
+        f"- Connection Type: {connection_type}\n"
+        f"- Device: {brand} {model} ({marketing_name})\n"
+        f"- OS: {os_name}\n"
+        f"- Year Released: {year_released}\n"
+        f"- Device Type: {device_type}\n"
+        f"- VoLTE: {volte}\n"
+        f"- Technology: {technology}\n"
+        f"- Primary Hardware Type: {primary_hardware_type}\n"
+        f"- TAC: {tac}\n"
+        f"- Location: {district} district, {region} region\n"
+        f"- Site Name: {sitename}\n"
+        f"- Cell Code: {cellcode}\n"
+        f"- Coordinates: {lat}, {lon}\n"
+        f"- Monthly data usage (MB):\n{usage_str}\n"
+        f"- Monthly voice and SMS activity:\n{voice_sms_str}\n"
+    )
+
+    # --- Rule-based analysis ---
+    rule_results = rule_based_pattern_analysis(user_metrics)
+    patterns = rule_results['patterns']
+    suggestions = rule_results['suggestions']
+
+    # --- Personalized recommendations ---
+    recs = personalized_recommendations(user_metrics)
+
+    # Compose a richer prompt for the LLM, explicitly requesting pattern analysis and suggestions
+    prompt = (
+        # f"Please generate a detailed, user-friendly summary for the following mobile subscriber profile.\n"
+        # f"Include:\n"
+        # f"- All MSISDN details (device, location, usage, etc.)\n"
+        # f"- Clear analysis of usage patterns (e.g., high/low months, changes in usage, device/location changes, etc.)\n"
+        # f"- Actionable suggestions or recommendations for the user based on the observed patterns (e.g., consider upgrading plan, optimize usage, improve device, etc.)\n"
+        # f"- Use clear language and bullet points.\n"
+        # f"\n"
+        # f"1. Mobile number: {msisdn}\n"
+        # f"2. Device: {brand} {model}\n"
+        # f"3. Location: {district} district, {region} region\n"
+        # f"4. Monthly data usage (MB):\n{usage_str}\n"
+        # f"5. Monthly voice and SMS activity:\n{voice_sms_str}\n"
+        # f"6. Analyze and highlight any notable patterns, such as high usage months, low activity, or device/location changes.\n"
+        # f"7. Provide clear suggestions or recommendations for the user based on the above analysis.\n"
+        # f"8. Explain the user's device and usage behavior in simple terms, using bullet points.\n"
+        # f"9. If possible, suggest what type of user this might be (e.g., heavy data user, mostly voice, etc.).\n"
+        f"\n"
+        f"[Rule-based Pattern Analysis]\n"
+        f"Patterns detected:\n" + ("\n".join(f"- {p}" for p in patterns) if patterns else "- None detected.") + "\n"
+        f"Suggestions:\n" + ("\n".join(f"- {s}" for s in suggestions) if suggestions else "- None.") + "\n"
+        f"Personalized Recommendations:\n" + ("\n".join(f"- {r}" for r in recs) if recs else "- None.")
+    )
+
+    try:
+        # Increase max_length for a longer, richer summary
+        result = summarizer(prompt, max_length=180, min_length=40, do_sample=False)
+        # Combine detailed data, LLM summary, and rule-based/segmentation output for transparency
+        combined_summary = (
+            details_section + "\n"+
+            # "\n[AI-Generated Summary]\n" +
+            result[0]['summary_text']
+            + "\n\n[Rule-based Pattern Analysis]\n"
+            + ("\n".join(f"- {p}" for p in patterns) if patterns else "- None detected.")
+            + "\nSuggestions:\n" + ("\n".join(f"- {s}" for s in suggestions) if suggestions else "- None.")
+            + "\nPersonalized Recommendations:\n" + ("\n".join(f"- {r}" for r in recs) if recs else "- None.")
+        )
+        return combined_summary
+    except Exception as e:
+        return f"[AI Summary Error] {e}"
+
 
 
 @app.route('/')
@@ -616,25 +808,25 @@ def show_map(msisdn):
 def search():
     msisdn = request.form.get("msisdn")
     result = get_msisdn_data(msisdn)
-    
     if "error" in result:
         return render_template('index.html', error=result["error"])
-    
+
+    # Generate AI summary for Overview tab
+    ai_summary = generate_overall_msisdn_summary(result)
+
     try:
         map_obj = create_location_map(result)
-        
         static_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'static'))
         if not os.path.exists(static_path):
             os.makedirs(static_path)
-        
         map_path = os.path.join(static_path, 'temp_map.html')
         map_obj.save(map_path)
         has_map = True
     except Exception as e:
         print(f"Error creating map: {e}")
         has_map = False
-    
-    return render_template('index.html', result=result, has_map=has_map)
+
+    return render_template('index.html', result=result, has_map=has_map, ai_summary=ai_summary)
 
 #user count by site
 @app.route('/user_count')
@@ -911,6 +1103,17 @@ def filter_common_rsrp_data():
         'filtered_count': len(filtered_data)
     })
 
+@app.route('/ai_overall_summary', methods=['POST'])
+def ai_overall_summary():
+    msisdn = request.form.get('msisdn')
+    if not msisdn:
+        return jsonify({'error': 'MSISDN required'}), 400
+    user_data = get_msisdn_data(msisdn)
+    if 'error' in user_data:
+        return jsonify({'error': user_data['error']}), 404
+    summary = generate_overall_msisdn_summary(user_data)
+    return jsonify({'msisdn': msisdn, 'summary': summary})
+
 def fetch_rsrp_data_by_site_id(site_id):
     global zte_rsrp_df, huawei_rsrp_df
     
@@ -954,6 +1157,65 @@ def fetch_rsrp_data_by_site_id(site_id):
     site_info = add_calculated_rsrp_columns(site_info)
     
     return site_info
+
+# --- 3G Call Drop Rate Data API for JS Plotly Chart ---
+@app.route('/call-drop-rate-3g-data')
+def call_drop_rate_3g_data():
+    from datetime import datetime
+    try:
+        file_path = os.path.join(data_files_dir, 'Call_Drop_Rate_3G.xls')
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'Call_Drop_Rate_3G.xls not found'}), 404
+
+        # Try to read sheet 1, fallback to sheet 0 if error
+        try:
+            df = pd.read_excel(file_path, sheet_name=1)
+        except Exception:
+            try:
+                df = pd.read_excel(file_path, sheet_name=0)
+            except Exception as e:
+                return jsonify({'error': f'Excel read error: {str(e)}'}), 500
+
+        df = df.rename(columns=lambda x: str(x).strip())
+        available_cols = list(df.columns)
+        # Robustly detect the date and drop columns
+        # Robustly select drop_col
+        drop_col = '3G Call Drop Rate'
+        if drop_col not in df.columns:
+            drop_col = df.columns[-1]  # fallback to last column
+        # Robustly select date_col
+        if 'Start' in df.columns:
+            date_col = 'Start'
+        else:
+            date_col = df.columns[0]  # fallback to first column
+
+        # Keep original date strings for x-axis
+        df = df[df[date_col].notnull()]
+        # Save original date strings before conversion
+        original_dates = df[date_col].astype(str).tolist()
+        # For filtering, convert to datetime (but keep original for x-axis)
+        df[date_col + '_dt'] = pd.to_datetime(df[date_col], errors='coerce')
+        df = df[df[date_col + '_dt'].notnull()]
+        df = df[df[date_col + '_dt'].dt.year >= 2014]
+        df = df.sort_values(date_col + '_dt')
+        df[drop_col] = df[drop_col].replace({np.nan: None, np.inf: None, -np.inf: None})
+        # After filtering/sorting, get the original date strings in the same order
+        x = df[date_col].astype(str).tolist()
+        y = df[drop_col].tolist()
+        # Add a years array for frontend filtering
+        years = df[date_col + '_dt'].dt.year.tolist()
+        return jsonify({
+            "x": x,
+            "y": y,
+            "years": years,
+            "date_col": date_col,
+            "drop_col": drop_col,
+            "available_columns": available_cols
+        })
+    except Exception as e:
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+    
+
 
 def filter_and_sort_rsrp_data(rsrp_data, filters=None, sort_by=None, sort_order='asc'):
     if not rsrp_data:
@@ -1075,6 +1337,62 @@ def apply_regex_filter(data, column, pattern):
         return []
 
 dash_app = create_dash_app(app, latest_result)
+
+
+# Route for 3G Call Drop Rate Graph HTML page (Plotly/JS visualization)
+@app.route('/call-drop-rate-3g-graph')
+def call_drop_rate_3g_graph():
+    return render_template('call_drop_rate_3g_graph.html')
+
+
+# --- HLR VLR Subbase Multi-Line Data API ---
+@app.route('/hlr-vlr-subbase-data')
+def hlr_vlr_subbase_data():
+    """API endpoint to return all columns from HLR_VLR_Subbase.xlsx sheet 1 for multi-line chart visualization."""
+    import numpy as np
+    import pandas as pd
+    import os
+    from flask import jsonify
+    try:
+        file_path = os.path.join(data_files_dir, 'HLR_VLR Subbase.xls')
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'HLR_VLR_Subbase.xls not found'}), 404
+
+        # Read sheet 1 (index 0-based)
+        try:
+            df = pd.read_excel(file_path, sheet_name=1)
+        except Exception:
+            try:
+                df = pd.read_excel(file_path, sheet_name=0)
+            except Exception as e:
+                return jsonify({'error': f'Failed to read Excel: {str(e)}'}), 500
+
+        df = df.rename(columns=lambda x: str(x).strip())
+        available_cols = list(df.columns)
+        # Use the first column as x-axis (usually date or index)
+        x_col = df.columns[0]
+        x = df[x_col].astype(str).tolist()
+        # Prepare y-series for all other columns
+        y_series = {}
+        for col in df.columns[1:]:
+            # Replace NaN/inf with None for JSON serialization
+            y_series[col] = df[col].replace({np.nan: None, np.inf: None, -np.inf: None}).tolist()
+        return jsonify({
+            "x": x,
+            "y_series": y_series,
+            "x_col": x_col,
+            "y_cols": list(df.columns[1:]),
+            "available_columns": available_cols
+        })
+    except Exception as e:
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
+@app.route('/call-drop-rate-3g-table')
+def call_drop_rate_3g_table():
+    return render_template('call_drop_rate_3g_table.html')
+
+
+
 
 application = DispatcherMiddleware(app.wsgi_app, {
     '/usage-graph': dash_app.server
