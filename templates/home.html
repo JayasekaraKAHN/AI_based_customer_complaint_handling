@@ -2,46 +2,211 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Admin Login</title>
+    <title>Admin Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link
       href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css"
       rel="stylesheet"
     />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+    />
     <style>
-      .logout-btn {
+      body {
+        min-height: 100vh;
+        background: #f4f6f8;
+        font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+        color: #222a35;
+        margin: 0;
+      }
+      .sidebar {
+        height: 100vh;
+        width: 270px;
+        background: #f4f6f8;
+        color: #222a35;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 2.5rem 1.5rem 1.5rem 1.5rem;
+        position: fixed;
+        top: 0;
+        left: 0;
+        box-shadow: 2px 0 16px rgba(44, 62, 80, 0.06);
+        z-index: 1030;
+      }
+      .sidebar .logo {
+        width: 60px;
+        height: 90px;
+        margin-bottom: 1.2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .sidebar .logo svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      .sidebar .username {
+        font-size: 1.3rem;
+        font-weight: 400;
+        text-align: center;
+        margin-bottom: 0.2rem;
+        letter-spacing: 0.5px;
+      }
+      .sidebar .role {
+        font-size: 0.1rem;
+        color: #7b8a99;
+        text-align: center;
+        margin-bottom: 2.2rem;
+      }
+      .sidebar-section {
+        width: 100%;
+        margin-bottom: 1.5rem;
+      }
+      .sidebar-section-title {
+        font-size: 0.78rem;
+        color: #a0aab8;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        margin-bottom: 0.7rem;
+        margin-left: 0.2rem;
+        text-transform: uppercase;
+      }
+      .sidebar-nav {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        width: 100%;
+      }
+      .sidebar-nav li {
+        margin-bottom: 0.5rem;
+      }
+      .sidebar-nav a {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        font-size: 0.95rem;
+        color: #222a35;
+        text-decoration: none;
+        padding: 0.7rem 1rem;
+        border-radius: 0.6rem;
+        transition: background 0.18s, color 0.18s;
+        font-weight: 500;
+      }
+      .sidebar-nav a .bi {
+        font-size: 1.25rem;
+        color: #7b8a99;
+        transition: color 0.18s;
+      }
+      .sidebar-nav a:hover, .sidebar-nav a.active {
+        background: #e9ecef;
+        color: #5d7096;
+      }
+      .sidebar-nav a:hover .bi, .sidebar-nav a.active .bi {
+        color: #4d586e;
+      }
+      .sidebar-bottom {
+        margin-top: auto;
+        width: 100%;
+      }
+      @media (max-width: 991.98px) {
+        .sidebar {
+          left: -270px;
+          transition: left 0.3s;
+        }
+        .sidebar.show {
+          left: 0;
+        }
+      }
+      .sidebar-toggle {
         position: absolute;
-        top: 20px;
-        right: 20px;
+        top: 1.5rem;
+        right: 1.5rem;
+        background: none;
+        border: none;
+        font-size: 2rem;
+        color: #7b8a99;
+        cursor: pointer;
+        display: none;
+      }
+      @media (max-width: 991.98px) {
+        .sidebar-toggle {
+          display: block;
+        }
+        .content {
+          margin-left: 0 !important;
+        }
+      }
+      .content {
+        margin-left: 270px;
+        padding: 2.5rem 1.5rem 1.5rem 1.5rem;
+        transition: margin-left 0.3s;
       }
     </style>
   </head>
   <body>
-    <a
-        href="{{ url_for('logout') }}"
-        class="btn btn-outline-danger logout-btn"
-      >
-        Logout
-      </a>
-    <div class="container mt-5">
-      <h2 class="mb-4">Navigation</h2>
-      <div class="list-group mb-4">
-        <a href="/index" class="list-group-item list-group-item-action">Fetch MSISDN details</a>
-        <a href="/user_count" class="list-group-item list-group-item-action">Export VLR data</a>
+    <div class="sidebar" id="sidebarMenu">
+      <button class="sidebar-toggle" id="sidebarToggle"><i class="bi bi-list"></i></button>
+      <div class="logo">
+        <!-- Placeholder SVG logo -->
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="15" y="15" width="70" height="70" rx="15" stroke="#222a35" stroke-width="6" fill="none"/>
+          <path d="M15 50h70M50 15v70" stroke="#222a35" stroke-width="6"/>
+        </svg>
       </div>
-      <div class="card">
-        <div class="card-header bg-primary text-white">
-          <strong>Device and Subscriber Insights</strong>
-        </div>
-        <div class="card-body">
-          <ul class="list-group list-group-flush">
-            <li class="list-group-item"><strong>Total unique devices (IMEI):</strong> {{ insights.total_unique_devices }}</li>
-            <li class="list-group-item"><strong>Total active subscribers (MSISDN):</strong> {{ insights.total_active_subscribers }}</li>
-            <li class="list-group-item"><strong>Average devices per user:</strong> {{ insights.average_devices_per_user }}</li>
-            <li class="list-group-item"><strong>Top 5 device models:</strong> {{ insights.top_5_device_models | join(', ') }}</li>
-          </ul>
+      <div class="username">Admin</div>
+      <div class="role">Administrator</div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">General</div>
+        <ul class="sidebar-nav">
+          <li><a href="/index"><i class="bi bi-search"></i>Fetch MSISDN details</a></li>
+          <li><a href="/user_count"><i class="bi bi-download"></i>Export VLR data</a></li>
+          <li><a href="#"><i class="bi bi-download"></i>HLR_VLR Subbase</a></li>
+          <li><a href="#"><i class="bi bi-download"></i>MSC Traffic Report</a></li>
+          <li><a href="#"><i class="bi bi-download"></i>3G_Call_Drop_Rate</a></li>
+          <li><a href="#"><i class="bi bi-download"></i>2G_3G_Call_Setup_Time</a></li>
+          <li><a href="#"><i class="bi bi-download"></i>VoLTE</a></li>
+          <li><a href="#"><i class="bi bi-download"></i>CS_VoLTE_Comparison</a></li>
+          <li><a href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-right"></i>Logout</a></li>
+        </ul>
+      </div>
+      <div class="sidebar-bottom">
+        <ul class="sidebar-nav">
+          <li><a href="#"><i class="bi bi-gear"></i>Settings</a></li>
+          <li><a href="#"><i class="bi bi-question-circle"></i>Help</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="content">
+      <div class="container-fluid">
+    
+          </div>
+          <div class="card-body">
+            <ul class="list-group list-group-flush">
+        
+            </ul>
+          </div>
         </div>
       </div>
     </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // Sidebar toggle for mobile
+      const sidebarToggle = document.getElementById('sidebarToggle');
+      const sidebarMenu = document.getElementById('sidebarMenu');
+      sidebarToggle && sidebarToggle.addEventListener('click', function () {
+        sidebarMenu.classList.toggle('show');
+      });
+      // Close sidebar when clicking outside on mobile
+      document.addEventListener('click', function(event) {
+        if (window.innerWidth < 992 && sidebarMenu.classList.contains('show')) {
+          if (!sidebarMenu.contains(event.target) && event.target !== sidebarToggle) {
+            sidebarMenu.classList.remove('show');
+          }
+        }
+      });
+    </script>
   </body>
 </html>
