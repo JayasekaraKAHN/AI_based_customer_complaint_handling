@@ -1,10 +1,16 @@
 
+
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify
 from device_subscriber_insights import get_device_subscriber_insights
 from datetime import timedelta
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.serving import run_simple
+
 from usage_graphs import create_dash_app 
+from call_drop_rate_dash import create_call_drop_rate_dash_app
+from hlr_vlr_subs_dash import create_hlr_vlr_subs_dash_app
+
+
 import pandas as pd
 import re
 import io
@@ -239,7 +245,15 @@ SIM_TYPE_MAPPING = {
     '9': ("SIM", "POS")
 }
 
+
 latest_result = {}
+
+# Create Dash app for call drop rate graph
+call_drop_rate_file = os.path.join(os.path.dirname(__file__), '..', 'data_files', 'Call_Drop_Rate_3G.xls')
+call_drop_rate_dash_app = create_call_drop_rate_dash_app(app, call_drop_rate_file)
+# Create Dash app for HLR/VLR subscribers graph
+hlr_vlr_subbase_file = os.path.join(os.path.dirname(__file__), '..', 'data_files', 'HLR_VLR_Subbase.xls')
+hlr_vlr_subbase_dash_app = create_hlr_vlr_subs_dash_app(app, hlr_vlr_subbase_file, url_base_pathname='/hlr-vlr-subbase-graph/')
 
 #MSISDN data retrieval
 def get_msisdn_data(msisdn):
@@ -1385,57 +1399,46 @@ def call_drop_rate_3g_graph():
     return render_template('call_drop_rate_3g_graph.html')
 
 
-# --- HLR VLR Subbase Multi-Line Data API ---
-@app.route('/hlr-vlr-subbase-data')
-def hlr_vlr_subbase_data():
-    """API endpoint to return all columns from HLR_VLR_Subbase.xlsx sheet 1 for multi-line chart visualization."""
-    import numpy as np
-    import pandas as pd
-    import os
-    from flask import jsonify
-    try:
-        file_path = os.path.join(data_files_dir, 'HLR_VLR Subbase.xls')
-        if not os.path.exists(file_path):
-            return jsonify({'error': 'HLR_VLR_Subbase.xls not found'}), 404
-
-        # Read sheet 1 (index 0-based)
-        try:
-            df = pd.read_excel(file_path, sheet_name=1)
-        except Exception:
-            try:
-                df = pd.read_excel(file_path, sheet_name=0)
-            except Exception as e:
-                return jsonify({'error': f'Failed to read Excel: {str(e)}'}), 500
-
-        df = df.rename(columns=lambda x: str(x).strip())
-        available_cols = list(df.columns)
-        # Use the first column as x-axis (usually date or index)
-        x_col = df.columns[0]
-        x = df[x_col].astype(str).tolist()
-        # Prepare y-series for all other columns
-        y_series = {}
-        for col in df.columns[1:]:
-            # Replace NaN/inf with None for JSON serialization
-            y_series[col] = df[col].replace({np.nan: None, np.inf: None, -np.inf: None}).tolist()
-        return jsonify({
-            "x": x,
-            "y_series": y_series,
-            "x_col": x_col,
-            "y_cols": list(df.columns[1:]),
-            "available_columns": available_cols
-        })
-    except Exception as e:
-        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
-
 @app.route('/call_drop_rate_3g_table')
 def call_drop_rate_3g_table():
     return render_template('call_drop_rate_3g_table.html')
 
+@app.route('/hlr-vlr-subbase-data')
+def hlr_vlr_subbase_data():
+    import pandas as pd
+    import numpy as np
+    from flask import jsonify
+    file_path = os.path.join(data_files_dir, 'HLR_VLR_Subbase.xls')
+    try:
+        df = pd.read_excel(file_path, sheet_name='Daily HLR Subs')
+        df = df.rename(columns=lambda x: str(x).strip())
+        x_col = df.columns[0]
+        x = df[x_col].astype(str).tolist()
+        y_series = {col: df[col].replace({np.nan: None, np.inf: None, -np.inf: None}).tolist() for col in df.columns[1:]}
+        return jsonify({
+            "x": x,
+            "y_series": y_series,
+            "x_col": x_col,
+            "y_cols": list(df.columns[1:])
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+
+# Route for HLR/VLR Subbase JS-based graph
+@app.route('/hlr-vlr-subs-graph')
+def hlr_vlr_subs_graph():
+    return render_template('hlr_vlr_subs_graph.html')
 
 
 
+
+
+# Add Dash app for call drop rate graph at /call-drop-rate-graph
 application = DispatcherMiddleware(app.wsgi_app, {
-    '/usage-graph': dash_app.server
+    '/usage-graph': dash_app.server,
+    '/call-drop-rate-graph': call_drop_rate_dash_app.server,
+    '/hlr-vlr-subbase-graph': hlr_vlr_subbase_dash_app.server,
 })
 
 if __name__ == "__main__":
