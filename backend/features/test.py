@@ -1,17 +1,40 @@
-
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify
 from device_subscriber_insights import get_device_subscriber_insights
 from datetime import timedelta
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.serving import run_simple
+
 from usage_graphs import create_dash_app 
+from call_drop_rate_dash import create_call_drop_rate_dash_app
+from hlr_vlr_subs_dash import create_hlr_vlr_subs_dash_app
+from user_location_map import create_location_map
+from msisdn_data import get_msisdn_data
+from VLR_data import get_user_count
+from overview import (
+    generate_overall_msisdn_summary, 
+    rule_based_pattern_analysis, 
+    personalized_recommendations
+)
+from RSRP_data import (
+    fetch_rsrp_data_directly,
+    add_calculated_rsrp_columns,
+    fetch_rsrp_data_by_site_id,
+    filter_and_sort_rsrp_data,
+    apply_type_sensitive_filter,
+    apply_text_filter,
+    apply_numeric_min_filter,
+    apply_numeric_max_filter,
+    apply_auto_detect_filter,
+    apply_wildcard_filter,
+    apply_regex_filter
+)
+
 import pandas as pd
 import re
 import io
 import os
 import folium
 import calendar
-#AI Summarization Imports
 from transformers import pipeline
 import numpy as np
 
@@ -77,157 +100,6 @@ except Exception as e:
     summarizer = None
     print(f"[AI Summary] Error loading BART model: {e}")
 
-#display user location on map
-def create_location_map(result_data):
-    try:
-        lat = result_data.get('Lat', 'Not Found')
-        lon = result_data.get('Lon', 'Not Found')
-        sitename = result_data.get('Sitename', 'Unknown Site')
-        district = result_data.get('District', 'Unknown District')
-        msisdn = result_data.get('MSISDN', 'Unknown')
-        
-        default_lat, default_lon = 7.8731, 80.7718 # Default to Colombo
-        
-        if lat != 'Not Found' and lon != 'Not Found':
-            try:
-                lat = float(lat)
-                lon = float(lon)
-                center_lat, center_lon = lat, lon
-                zoom_level = 12
-                found_location = True
-            except (ValueError, TypeError):
-                center_lat, center_lon = default_lat, default_lon
-                zoom_level = 7
-                found_location = False
-        else:
-            center_lat, center_lon = default_lat, default_lon
-            zoom_level = 7
-            found_location = False
-        
-        map_obj = folium.Map(
-            location=[center_lat, center_lon],
-            zoom_start=zoom_level,
-            tiles='OpenStreetMap'
-        )
-        
-        popup_content = f"""
-        <div style="width: 280px; font-family: Arial, sans-serif;">
-            <h5 style="color: #2196F3; background: #E3F2FD; padding: 8px; margin: -5px -5px 10px -5px; border-radius: 4px;">
-                📱 User Location
-            </h5>
-            <table style="width: 100%; font-size: 12px;">
-                <tr><td><strong>MSISDN:</strong></td><td>{msisdn}</td></tr>
-                <tr><td><strong>Site:</strong></td><td>{sitename}</td></tr>
-                <tr><td><strong>District:</strong></td><td>{district}</td></tr>
-                <tr><td><strong>Region:</strong></td><td>{result_data.get('Region', 'Unknown')}</td></tr>
-                <tr><td><strong>Cell Code:</strong></td><td>{result_data.get('Cellcode', 'Unknown')}</td></tr>
-                <tr><td><strong>LAC:</strong></td><td>{result_data.get('LAC', 'Unknown')}</td></tr>
-                <tr><td><strong>SAC:</strong></td><td>{result_data.get('SAC', 'Unknown')}</td></tr>
-                <tr><td><strong>Coordinates:</strong></td><td>{lat}, {lon}</td></tr>
-            </table>
-        </div>
-        """
-        
-        if found_location:
-            folium.Marker(
-                location=[center_lat, center_lon],
-                popup=folium.Popup(popup_content, max_width=320),
-                tooltip=f"👤 User: {msisdn} | {district}",
-                icon=folium.Icon(
-                    color='red', 
-                    icon='user', 
-                    prefix='fa'
-                )
-            ).add_to(map_obj)
-            
-        else:
-            folium.Marker(
-                location=[center_lat, center_lon],
-                popup=folium.Popup(
-                    """
-                    <div style="width: 200px;">
-                        <h6 style="color: #FF5722;">Location Not Found</h6>
-                        <p>Showing default Sri Lanka location</p>
-                        <p><strong>MSISDN:</strong> {}</p>
-                        <p><strong>Coordinates:</strong> Not available</p>
-                    </div>
-                    """.format(msisdn), 
-                    max_width=220
-                ),
-                tooltip="Location not available",
-                icon=folium.Icon(color='gray', icon='question-circle', prefix='fa')
-            ).add_to(map_obj)
-        
-        # Add a simple legend
-        legend_html = f"""
-        <div style="position: fixed; 
-                    top: 10px; right: 10px; width: 200px; height: auto; 
-                    background-color: white; border: 2px solid #ccc; z-index: 9999; 
-                    font-size: 12px; padding: 10px; border-radius: 5px;
-                    box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-        <p style="margin: 5px 0; font-size: 10px; color: #666;">
-            <strong>District:</strong> {district}<br>
-            <strong>Region:</strong> {result_data.get('Region', 'Unknown')}
-        </p>
-        </div>
-        """
-        map_obj.get_root().html.add_child(folium.Element(legend_html))
-        
-        return map_obj
-        
-    except Exception as e:
-        print(f"Error creating map: {e}")
-        map_obj = folium.Map(
-            location=[7.8731, 80.7718],
-            zoom_start=7,
-            tiles='OpenStreetMap'
-        )
-        
-        folium.Marker(
-            location=[7.8731, 80.7718],
-            popup=folium.Popup(
-                f"""
-                <div style="width: 200px;">
-                    <h6 style="color: #F44336;">Map Error</h6>
-                    <p>Unable to create location map</p>
-                    <p><strong>MSISDN:</strong> {result_data.get('MSISDN', 'Unknown')}</p>
-                    <p><strong>Error:</strong> {str(e)[:50]}...</p>
-                </div>
-                """, 
-                max_width=220
-            ),
-            icon=folium.Icon(color='red', icon='exclamation-triangle', prefix='fa')
-        ).add_to(map_obj)
-        
-        return map_obj
-
-#user count by site
-def get_user_count(month=None, district=None):
-    df_list = []
-    for m, file_info in USAGE_FILES.items():
-        if month and m != month:
-            continue
-        df = pd.read_csv(file_info['filename'], sep="\t", dtype={"MSISDN": str})
-        df.columns = [col.strip().upper() for col in df.columns]
-        df["Month"] = m
-        df_list.append(df)
-    if not df_list or "MSISDN" not in VLRD.columns:
-        return pd.DataFrame()
-    usage_all = pd.concat(df_list, ignore_index=True)
-    usage_all["MSISDN"] = usage_all["MSISDN"].astype(str)
-    VLRD["MSISDN"] = VLRD["MSISDN"].astype(str)
-    merged_df = pd.merge(usage_all, VLRD, on="MSISDN", how="inner")
-    merged_df["SITE_ID"] = merged_df["CELL_CODE"].astype(str).str[:6]
-    if district:
-        district_upper = district.upper()
-        sitename_match = ref_df[ref_df["sitename"].str.upper() == district_upper]
-        if not sitename_match.empty:
-            district_upper = sitename_match.iloc[0]["district"].upper()
-        merged_df = merged_df[merged_df["DISTRICT"].str.upper() == district_upper]
-    result_df = merged_df.groupby(['DISTRICT', 'SITE_ID'])['MSISDN'].nunique().reset_index()
-    result_df.rename(columns={'MSISDN': 'User_Count'}, inplace=True)
-    return result_df.sort_values(by='User_Count', ascending=False)
-
 usage_df = load_usage_data_with_month()
 
 SIM_TYPE_MAPPING = {
@@ -239,503 +111,15 @@ SIM_TYPE_MAPPING = {
     '9': ("SIM", "POS")
 }
 
+
 latest_result = {}
 
-#MSISDN data retrieval
-def get_msisdn_data(msisdn):
-    global latest_result
-
-    with open(INPUT_FILE, "r") as file:
-        lines = file.readlines()
-
-    for line in lines:
-        columns = line.strip().split(";")
-        if len(columns) < 5:
-            continue
-
-        imsi = columns[0]
-        msisdn_entry = columns[1]
-        tac = columns[2][:8]
-        location = columns[4]
-        imei = columns[2]  
-
-        if msisdn_entry == msisdn:
-            sitename = cellcode = lon = lat = region = district = "Not Found"
-            sim_type = connection_type = "Unknown"
-
-            if len(imsi) >= 8:
-                imsi_digit = imsi[7]
-                if imsi_digit in SIM_TYPE_MAPPING:
-                    sim_type, connection_type = SIM_TYPE_MAPPING[imsi_digit]
-
-            lac_dec = sac_dec = "Not Found"
-            if location.strip():
-                match = re.match(r"(\d+)-(\w+)-([a-fA-F0-9]+)", location)
-                if match:
-                    try:
-                        lac_dec = int(match.group(2), 16)
-                        sac_dec = int(match.group(3), 16)
-                        
-                        matched_row = ref_df[(ref_df['lac'] == lac_dec) & (ref_df['cellid'] == sac_dec)]
-                        
-                        if not matched_row.empty:
-                            row = matched_row.iloc[0]
-                            sitename = row['sitename']
-                            cellcode = row['cellcode']
-                            lon = float(row['lon'])
-                            lat = float(row['lat'])
-                            region = row['region']
-                            district = row['district']
-                            
-                            technology_type = row.get('type', 'Unknown')
-                            
-                            print(f"Found location: {sitename} ({district}, {region}) - {technology_type}")
-                            print(f"Coordinates: {lat}, {lon}")
-                        else:
-                            alt_match = ref_df[ref_df['lac'] == lac_dec]
-                            if not alt_match.empty:
-                                closest_match = alt_match.iloc[0]
-                                sitename = f"{closest_match['sitename']} (Approximate)"
-                                cellcode = closest_match['cellcode']
-                                lon = float(closest_match['lon'])
-                                lat = float(closest_match['lat'])
-                                region = closest_match['region']
-                                district = closest_match['district']
-                                print(f"Using approximate location: {sitename}")
-                            else:
-                                print(f"No reference data found for LAC: {lac_dec}, Cell: {sac_dec}")
-                                
-                    except ValueError:
-                        return {"error": "Invalid hex values for LAC or SAC"}
-                    except Exception as e:
-                        print(f"Error processing location data: {e}")
-                        return {"error": f"Location processing error: {str(e)}"}
-
-            brand = model = software_os_name = marketing_name = year_released = device_type = volte = technology = primary_hardware_type = "Not Found"
-            if tac.isdigit():
-                tac_row = tac_df[tac_df['tac'] == int(tac)]
-                if not tac_row.empty:
-                    row = tac_row.iloc[0]
-                    brand = row['brand']
-                    model = row['model']
-                    software_os_name = row['software_os_name']
-                    marketing_name = row['marketing_name']
-                    year_released = row['year_released']
-                    device_type = row['device_type']
-                    volte = row['volte']
-                    technology = row['technology']
-                    primary_hardware_type = row['primary_hardware_type']
-
-            usage_records = usage_df[usage_df["MSISDN"] == int(msisdn)]
-            monthly_usage = {
-                "months": [],
-                "2G": [],
-                "3G": [],
-                "4G": [],
-                "5G": [],
-                "outgoing_voice": [],
-                "incoming_voice": [],
-                "outgoing_sms":[],
-                "incoming_sms": [],
-                "Total": []
-            }
-
-            if not usage_records.empty:
-                grouped = usage_records.groupby("MONTH").sum(numeric_only=True)
-                sorted_months = sorted(USAGE_FILES.keys(), 
-                    key=lambda x: (USAGE_FILES[x]['year'], USAGE_FILES[x]['month']))
-                
-                for month in sorted_months:
-                    monthly_usage["months"].append(month)
-                    monthly_usage["2G"].append(int(grouped.at[month, 'VOLUME_2G_MB']) if month in grouped.index else 0)
-                    monthly_usage["3G"].append(int(grouped.at[month, 'VOLUME_3G_MB']) if month in grouped.index else 0)
-                    monthly_usage["4G"].append(int(grouped.at[month, 'VOLUME_4G_MB']) if month in grouped.index else 0)
-                    monthly_usage["5G"].append(int(grouped.at[month, 'VOLUME_5G_MB']) if month in grouped.index else 0)
-                    monthly_usage["incoming_voice"].append(round(grouped.at[month, 'INCOMING_VOICE'], 2) if month in grouped.index else 0.00)
-                    monthly_usage["outgoing_voice"].append(round(grouped.at[month, 'OUTGOING_VOICE'], 2) if month in grouped.index else 0.00)
-                    monthly_usage["incoming_sms"].append(int(grouped.at[month, 'INCOMING_SMS']) if month in grouped.index else 0)
-                    monthly_usage["outgoing_sms"].append(int(grouped.at[month, 'OUTGOING_SMS']) if month in grouped.index else 0)
-
-                    total = 0
-                    if month in grouped.index:
-                        total = (int(grouped.at[month, 'VOLUME_2G_MB']) +
-                                 int(grouped.at[month, 'VOLUME_3G_MB']) +
-                                 int(grouped.at[month, 'VOLUME_4G_MB']) +
-                                 int(grouped.at[month, 'VOLUME_5G_MB']))
-                    monthly_usage["Total"].append(total)
-
-            common_cells = []
-            try:
-                if not VLRD.empty:
-                    vlrd_matches = VLRD[VLRD["MSISDN"] == int(msisdn)]
-                    
-                    if not vlrd_matches.empty:
-                        for _, row in vlrd_matches.iterrows():
-                            cell_data = {
-                                'CELL_CODE': row.get('CELL_CODE', 'Unknown'),
-                                'SITE_NAME': row.get('SITE_NAME', 'Unknown'),
-                                'DISTRICT': row.get('DISTRICT', 'Unknown'),
-                                'LAC': row.get('LAC', 'Unknown'),
-                                'CELL': row.get('CELL', 'Unknown'),
-                                'LON': 'Not Found',
-                                'LAT': 'Not Found',
-                                'RSRP_DATA': []
-                            }
-                            
-                            if cell_data['CELL_CODE'] != 'Unknown':
-                                ref_match = ref_df[ref_df['cellcode'] == cell_data['CELL_CODE']]
-                                if not ref_match.empty:
-                                    cell_data['LON'] = ref_match.iloc[0]['lon']
-                                    cell_data['LAT'] = ref_match.iloc[0]['lat']
-                                
-                                site_id = str(cell_data['CELL_CODE'])[:6]
-                                try:
-                                    rsrp_data_for_site = fetch_rsrp_data_by_site_id(site_id)
-                                    cell_data['RSRP_DATA'] = rsrp_data_for_site if rsrp_data_for_site else []
-                                except Exception as e:
-                                    print(f"Error fetching RSRP data for Site ID {site_id}: {e}")
-                                    cell_data['RSRP_DATA'] = []
-                            
-                            common_cells.append(cell_data)
-                        
-            except Exception as e:
-                print(f"Error processing VLRD data: {e}")
-                common_cells = []
-
-            rsrp_data = []
-            if cellcode and cellcode != "Not Found":
-                try:
-                    rsrp_data = fetch_rsrp_data_directly(cellcode)
-                    if not rsrp_data:
-                        rsrp_data = []
-                except Exception as e:
-                    print(f"Error fetching RSRP data: {e}")
-                    rsrp_data = []
-
-            result = {
-                "MSISDN": msisdn,
-                "IMSI": imsi,
-                "IMEI": imei,
-                "SIM Type": sim_type,
-                "Connection Type": connection_type,
-                "LAC": lac_dec,
-                "SAC": sac_dec,
-                "Sitename": sitename,
-                "Cellcode": cellcode,
-                "Lon": lon,
-                "Lat": lat,
-                "Region": region,
-                "District": district,
-                "TAC": tac,
-                "Brand": brand,
-                "Model": model,
-                "OS": software_os_name,
-                "Marketing Name": marketing_name,
-                "Year Released": year_released,
-                "Device Type": device_type,
-                "VoLTE": volte,
-                "Technology": technology,
-                "Primary Hardware Type": primary_hardware_type,
-                "Monthly Usage": monthly_usage,
-                "Common Cell Locations": common_cells,
-                "RSRP Data": rsrp_data
-            }
-
-            latest_result = result
-            return result
-
-    return {"error": "MSISDN not found"}
-
-def fetch_rsrp_data_directly(cell_code):
-    global zte_rsrp_df, huawei_rsrp_df, ref_df
-
-    site_id = str(cell_code)[:6] 
-
-    zte_filtered = zte_rsrp_df[zte_rsrp_df['Site_ID'].astype(str) == site_id]
-    huawei_filtered = huawei_rsrp_df[huawei_rsrp_df['Site_ID'].astype(str) == site_id]
-
-    if zte_filtered.empty and huawei_filtered.empty:
-        return None
-
-    site_info = []
-    
-    # Process ZTE data 
-    for _, rsrp_row in zte_filtered.iterrows():
-        site_info.append({
-            'Site_Name': rsrp_row['Site Name'],
-            'Cell_Name': rsrp_row['Cell Name'],
-            'Site_ID': rsrp_row['Site_ID'],
-            'RSRP Range 1 (>-105dBm) %': round(float(rsrp_row['RSRP Range 1 (>-105dBm) %']) * 100, 2),
-            'RSRP Range 2 (-105~-110dBm) %': round(float(rsrp_row['RSRP Range 2 (-105~-110dBm) %']) * 100, 2),
-            'RSRP Range 3 (-110~-115dBm) %': round(float(rsrp_row['RSRP Range 3 (-110~-115dBm) %']) * 100, 2),
-            'RSRP < -115dBm %': round(float(rsrp_row['RSRP < -115dBm']) * 100, 2)
-        })
-    
-    # Process Huawei data 
-    for _, rsrp_row in huawei_filtered.iterrows():
-        site_info.append({
-            'Site_Name': rsrp_row['Site Name'],
-            'Cell_Name': rsrp_row['Cell Name'],
-            'Site_ID': rsrp_row['Site_ID'],
-            'RSRP Range 1 (>-105dBm) %': round(float(rsrp_row['RSRP Range 1 (>-105dBm) %']), 2),
-            'RSRP Range 2 (-105~-110dBm) %': round(float(rsrp_row['RSRP Range 2 (-105~-110dBm) %']), 2),
-            'RSRP Range 3 (-110~-115dBm) %': round(float(rsrp_row['RSRP Range 3 (-110~-115dBm) %']), 2),
-            'RSRP < -115dBm %': round(float(rsrp_row['RSRP < -115dBm']), 2)
-        })
-
-    site_info = add_calculated_rsrp_columns(site_info)
-    
-    return site_info
-
-def add_calculated_rsrp_columns(rsrp_data):
-    if not rsrp_data:
-        return rsrp_data
-    
-    site_averages = {}
-    
-    for row in rsrp_data:
-        site_name = row.get('Site_Name', 'Unknown')
-        if site_name not in site_averages:
-            site_averages[site_name] = {
-                'range1_values': [],
-                'range2_values': [],
-                'range3_values': [],
-                'range4_values': []
-            }
-        
-        try:
-            range1 = float(row.get('RSRP Range 1 (>-105dBm) %', 0))
-            range2 = float(row.get('RSRP Range 2 (-105~-110dBm) %', 0))
-            range3 = float(row.get('RSRP Range 3 (-110~-115dBm) %', 0))
-            range4 = float(row.get('RSRP < -115dBm %', 0))
-            
-            site_averages[site_name]['range1_values'].append(range1)
-            site_averages[site_name]['range2_values'].append(range2)
-            site_averages[site_name]['range3_values'].append(range3)
-            site_averages[site_name]['range4_values'].append(range4)
-            
-        except (ValueError, TypeError):
-            continue
-    
-    for site_name in site_averages:
-        site_data = site_averages[site_name]
-        
-        avg_range1 = sum(site_data['range1_values']) / len(site_data['range1_values']) if site_data['range1_values'] else 0
-        avg_range2 = sum(site_data['range2_values']) / len(site_data['range2_values']) if site_data['range2_values'] else 0
-        avg_range3 = sum(site_data['range3_values']) / len(site_data['range3_values']) if site_data['range3_values'] else 0
-        avg_range4 = sum(site_data['range4_values']) / len(site_data['range4_values']) if site_data['range4_values'] else 0
-        
-        site_averages[site_name]['avg_range1'] = round(avg_range1, 2)
-        site_averages[site_name]['avg_range2'] = round(avg_range2, 2)
-        site_averages[site_name]['avg_range3'] = round(avg_range3, 2)
-        site_averages[site_name]['avg_range4'] = round(avg_range4, 2)
-        
-        site_averages[site_name]['good_signal_avg'] = round(avg_range1 + avg_range2, 2)
-        site_averages[site_name]['poor_signal_avg'] = round(avg_range3 + avg_range4, 2)
-    
-    for row in rsrp_data:
-        site_name = row.get('Site_Name', 'Unknown')
-        
-        if site_name in site_averages:
-            good_signal_avg = site_averages[site_name]['good_signal_avg']
-            poor_signal_avg = site_averages[site_name]['poor_signal_avg']
-            
-            row['Good Signal Avg (Range 1+2) %'] = good_signal_avg
-            row['Poor Signal Avg (Range 3+4) %'] = poor_signal_avg
-            
-            if good_signal_avg > poor_signal_avg:
-                row['Signal Quality'] = 'Good'
-            else:
-                row['Signal Quality'] = 'Poor'
-        else:
-            row['Good Signal Avg (Range 1+2) %'] = 0.0
-            row['Poor Signal Avg (Range 3+4) %'] = 0.0
-            row['Signal Quality'] = 'Poor' 
-    
-    return rsrp_data
-
-
-# --- Rule-Based Pattern Analysis ---
-def rule_based_pattern_analysis(user_metrics):
-    monthly_usage = user_metrics.get('Monthly Usage', {})
-    months = monthly_usage.get('months', [])
-    total_usage = monthly_usage.get('Total', [])
-    outgoing_voice = monthly_usage.get('outgoing_voice', [])
-    incoming_voice = monthly_usage.get('incoming_voice', [])
-    outgoing_sms = monthly_usage.get('outgoing_sms', [])
-    incoming_sms = monthly_usage.get('incoming_sms', [])
-    device = f"{user_metrics.get('Brand', 'Unknown')} {user_metrics.get('Model', 'Unknown')}"
-    location = f"{user_metrics.get('District', 'Unknown')} district, {user_metrics.get('Region', 'Unknown')} region"
-
-    suggestions = []
-    patterns = []
-
-    # Detect high/low usage
-    if total_usage:
-        avg_usage = np.mean(total_usage)
-        max_usage = max(total_usage)
-        min_usage = min(total_usage)
-        if max_usage > avg_usage:
-            patterns.append("Significant spike in data usage detected in some months.")
-        if min_usage < avg_usage:
-            patterns.append("Some months show very low data usage.")
-        if avg_usage > 5000:
-            suggestions.append("Consider a higher data plan to save costs.")
-        elif avg_usage < 500:
-            suggestions.append("Current plan may be more than needed; consider downgrading.")
-
-    # Detect voice/SMS patterns
-    total_voice = sum(outgoing_voice) + sum(incoming_voice)
-    total_sms = sum(outgoing_sms) + sum(incoming_sms)
-    if total_voice > 1000:
-        patterns.append("Heavy voice call activity detected.")
-    if total_sms > 500:
-        patterns.append("Frequent SMS usage detected.")
-    if total_voice < 100 and total_sms < 50:
-        patterns.append("Low voice and SMS activity.")
-
-    # Device age
-    year_released = user_metrics.get('Year Released', None)
-    if year_released and str(year_released).isdigit():
-        try:
-            year_released = int(year_released)
-            if year_released < 2022:
-                suggestions.append("Consider upgrading to a newer device for better performance and features.")
-        except Exception:
-            pass
-
-    return {
-        'patterns': patterns,
-        'suggestions': suggestions
-    }
-
-# --- Personalized Recommendation Engine (Placeholder) ---
-def personalized_recommendations(user_metrics):
-    return ["Try Mobitel's new Unlimited Data Plan for heavy users!", "Upgrade to a 5G device for better speeds."]
-
-# --- LLM-Based Summarization ---
-def generate_overall_msisdn_summary(user_metrics: dict) -> str:
-    if summarizer is None:
-        return "AI summarizer not available. Please check model installation."
-
-    msisdn = user_metrics.get('MSISDN', 'Unknown')
-    brand = user_metrics.get('Brand', 'Unknown')
-    model = user_metrics.get('Model', 'Unknown')
-    district = user_metrics.get('District', 'Unknown')
-    region = user_metrics.get('Region', 'Unknown')
-    monthly_usage = user_metrics.get('Monthly Usage', {})
-    months = monthly_usage.get('months', [])
-    total_usage = monthly_usage.get('Total', [])
-    sim_type = user_metrics.get('SIM Type', 'Unknown')
-    connection_type = user_metrics.get('Connection Type', 'Unknown')
-    year_released = user_metrics.get('Year Released', 'Unknown')
-    device_type = user_metrics.get('Device Type', 'Unknown')
-    volte = user_metrics.get('VoLTE', 'Unknown')
-    technology = user_metrics.get('Technology', 'Unknown')
-    tac = user_metrics.get('TAC', 'Unknown')
-    imei = user_metrics.get('IMEI', 'Unknown')
-    imsi = user_metrics.get('IMSI', 'Unknown')
-    sitename = user_metrics.get('Sitename', 'Unknown')
-    cellcode = user_metrics.get('Cellcode', 'Unknown')
-    lon = user_metrics.get('Lon', 'Unknown')
-    lat = user_metrics.get('Lat', 'Unknown')
-    os_name = user_metrics.get('OS', 'Unknown')
-    marketing_name = user_metrics.get('Marketing Name', 'Unknown')
-    primary_hardware_type = user_metrics.get('Primary Hardware Type', 'Unknown')
-
-    # Build a more detailed, readable, point-wise usage summary
-    usage_lines = []
-    for m, t in zip(months, total_usage):
-        usage_lines.append(f"- {m}: {t} MB data usage")
-    usage_str = "\n".join(usage_lines) if usage_lines else "No usage data."
-
-    outgoing_voice = monthly_usage.get('outgoing_voice', [])
-    incoming_voice = monthly_usage.get('incoming_voice', [])
-    outgoing_sms = monthly_usage.get('outgoing_sms', [])
-    incoming_sms = monthly_usage.get('incoming_sms', [])
-
-    voice_sms_lines = []
-    for i, m in enumerate(months):
-        voice = (outgoing_voice[i] if i < len(outgoing_voice) else 0) + (incoming_voice[i] if i < len(incoming_voice) else 0)
-        sms = (outgoing_sms[i] if i < len(outgoing_sms) else 0) + (incoming_sms[i] if i < len(incoming_sms) else 0)
-        voice_sms_lines.append(f"- {m}: {voice} mins voice, {sms} SMS")
-    voice_sms_str = "\n".join(voice_sms_lines) if voice_sms_lines else "No voice/SMS data."
-
-    # --- Detailed MSISDN Data Section ---
-    details_section = (
-        f"[MSISDN Detailed Data]\n"
-        f"- Mobile number: {msisdn}\n"
-        f"- IMSI: {imsi}\n"
-        f"- IMEI: {imei}\n"
-        f"- SIM Type: {sim_type}\n"
-        f"- Connection Type: {connection_type}\n"
-        f"- Device: {brand} {model} ({marketing_name})\n"
-        f"- OS: {os_name}\n"
-        f"- Year Released: {year_released}\n"
-        f"- Device Type: {device_type}\n"
-        f"- VoLTE: {volte}\n"
-        f"- Technology: {technology}\n"
-        f"- Primary Hardware Type: {primary_hardware_type}\n"
-        f"- TAC: {tac}\n"
-        f"- Location: {district} district, {region} region\n"
-        f"- Site Name: {sitename}\n"
-        f"- Cell Code: {cellcode}\n"
-        f"- Coordinates: {lat}, {lon}\n"
-        f"- Monthly data usage (MB):\n{usage_str}\n"
-        f"- Monthly voice and SMS activity:\n{voice_sms_str}\n"
-    )
-
-    # --- Rule-based analysis ---
-    rule_results = rule_based_pattern_analysis(user_metrics)
-    patterns = rule_results['patterns']
-    suggestions = rule_results['suggestions']
-
-    # --- Personalized recommendations ---
-    recs = personalized_recommendations(user_metrics)
-
-    # Compose a richer prompt for the LLM, explicitly requesting pattern analysis and suggestions
-    prompt = (
-        # f"Please generate a detailed, user-friendly summary for the following mobile subscriber profile.\n"
-        # f"Include:\n"
-        # f"- All MSISDN details (device, location, usage, etc.)\n"
-        # f"- Clear analysis of usage patterns (e.g., high/low months, changes in usage, device/location changes, etc.)\n"
-        # f"- Actionable suggestions or recommendations for the user based on the observed patterns (e.g., consider upgrading plan, optimize usage, improve device, etc.)\n"
-        # f"- Use clear language and bullet points.\n"
-        # f"\n"
-        # f"1. Mobile number: {msisdn}\n"
-        # f"2. Device: {brand} {model}\n"
-        # f"3. Location: {district} district, {region} region\n"
-        # f"4. Monthly data usage (MB):\n{usage_str}\n"
-        # f"5. Monthly voice and SMS activity:\n{voice_sms_str}\n"
-        # f"6. Analyze and highlight any notable patterns, such as high usage months, low activity, or device/location changes.\n"
-        # f"7. Provide clear suggestions or recommendations for the user based on the above analysis.\n"
-        # f"8. Explain the user's device and usage behavior in simple terms, using bullet points.\n"
-        # f"9. If possible, suggest what type of user this might be (e.g., heavy data user, mostly voice, etc.).\n"
-        f"\n"
-        f"[Rule-based Pattern Analysis]\n"
-        f"Patterns detected:\n" + ("\n".join(f"- {p}" for p in patterns) if patterns else "- None detected.") + "\n"
-        f"Suggestions:\n" + ("\n".join(f"- {s}" for s in suggestions) if suggestions else "- None.") + "\n"
-        f"Personalized Recommendations:\n" + ("\n".join(f"- {r}" for r in recs) if recs else "- None.")
-    )
-
-    try:
-        # Increase max_length for a longer, richer summary
-        result = summarizer(prompt, max_length=180, min_length=40, do_sample=False)
-        # Combine detailed data, LLM summary, and rule-based/segmentation output for transparency
-        combined_summary = (
-            details_section + "\n"+
-            # "\n[AI-Generated Summary]\n" +
-            result[0]['summary_text']
-            + "\n\n[Rule-based Pattern Analysis]\n"
-            + ("\n".join(f"- {p}" for p in patterns) if patterns else "- None detected.")
-            + "\nSuggestions:\n" + ("\n".join(f"- {s}" for s in suggestions) if suggestions else "- None.")
-            + "\nPersonalized Recommendations:\n" + ("\n".join(f"- {r}" for r in recs) if recs else "- None.")
-        )
-        return combined_summary
-    except Exception as e:
-        return f"[AI Summary Error] {e}"
-
-
+# Create Dash app for call drop rate graph
+call_drop_rate_file = os.path.join(os.path.dirname(__file__), '..', 'data_files', 'Call_Drop_Rate_3G.xls')
+call_drop_rate_dash_app = create_call_drop_rate_dash_app(app, call_drop_rate_file)
+# Create Dash app for HLR/VLR subscribers graph
+hlr_vlr_subbase_file = os.path.join(os.path.dirname(__file__), '..', 'data_files', 'HLR_VLR_Subbase.xls')
+hlr_vlr_subbase_dash_app = create_hlr_vlr_subs_dash_app(app, hlr_vlr_subbase_file, url_base_pathname='/hlr-vlr-subbase-graph/')
 
 @app.route('/')
 def home():
@@ -776,7 +160,18 @@ def logout():
 
 @app.route('/map/<msisdn>')
 def show_map(msisdn):  
-    result = get_msisdn_data(msisdn)
+    result = get_msisdn_data(
+        msisdn,
+        INPUT_FILE,
+        SIM_TYPE_MAPPING,
+        ref_df,
+        tac_df,
+        usage_df,
+        USAGE_FILES,
+        VLRD,
+        lambda site_id: fetch_rsrp_data_by_site_id(site_id, zte_rsrp_df, huawei_rsrp_df),
+        lambda cell_code: fetch_rsrp_data_directly(cell_code, zte_rsrp_df, huawei_rsrp_df, ref_df)
+    )
 
     if "error" in result:
         map_obj = folium.Map(
@@ -807,12 +202,23 @@ def show_map(msisdn):
 @app.route('/search', methods=['POST'])
 def search():
     msisdn = request.form.get("msisdn")
-    result = get_msisdn_data(msisdn)
+    result = get_msisdn_data(
+        msisdn,
+        INPUT_FILE,
+        SIM_TYPE_MAPPING,
+        ref_df,
+        tac_df,
+        usage_df,
+        USAGE_FILES,
+        VLRD,
+        lambda site_id: fetch_rsrp_data_by_site_id(site_id, zte_rsrp_df, huawei_rsrp_df),
+        lambda cell_code: fetch_rsrp_data_directly(cell_code, zte_rsrp_df, huawei_rsrp_df, ref_df)
+    )
     if "error" in result:
         return render_template('index.html', error=result["error"])
 
     # Generate AI summary for Overview tab
-    ai_summary = generate_overall_msisdn_summary(result)
+    ai_summary = generate_overall_msisdn_summary(result, summarizer)
 
     try:
         map_obj = create_location_map(result)
@@ -829,11 +235,12 @@ def search():
     return render_template('index.html', result=result, has_map=has_map, ai_summary=ai_summary)
 
 #user count by site
+
 @app.route('/user_count')
 def user_count():
     month = request.args.get('month')
     district = request.args.get('district')
-    table_data = get_user_count(month, district)
+    table_data = get_user_count(month, district, USAGE_FILES, VLRD, ref_df)
 
     if table_data is None or table_data.empty:
         table_data = pd.DataFrame()  
@@ -848,11 +255,12 @@ def user_count():
 
 
 #District Search
+
 @app.route('/user_count/search', methods=['POST'])
 def user_count_search():
     month = request.form.get('month')
     district = request.form.get('district')
-    table_data = get_user_count(month, district)
+    table_data = get_user_count(month, district, USAGE_FILES, VLRD, ref_df)
     return render_template(
         'export_vlr_data.html',
         table_data=table_data.to_dict(orient='records'),
@@ -887,7 +295,7 @@ def download_user_count():
 
 @app.route('/rsrp_ranges_direct/<cell_code>', methods=['GET', 'POST'])
 def display_rsrp_ranges_direct(cell_code):
-    rsrp_data = fetch_rsrp_data_directly(cell_code)
+    rsrp_data = fetch_rsrp_data_directly(cell_code, zte_rsrp_df, huawei_rsrp_df, ref_df)
 
     if not rsrp_data:
         flash(f"No RSRP data found for Cell Code {cell_code}", "error")
@@ -927,7 +335,7 @@ def display_rsrp_ranges_direct(cell_code):
 @app.route('/rsrp_by_site_id/<site_id>')
 def get_rsrp_by_site_id(site_id):
     try:
-        rsrp_data = fetch_rsrp_data_by_site_id(site_id)
+        rsrp_data = fetch_rsrp_data_by_site_id(site_id, zte_rsrp_df, huawei_rsrp_df)
         if not rsrp_data:
             return jsonify({'error': f'No RSRP data found for Site ID {site_id}'}), 404
         
@@ -953,7 +361,7 @@ def filter_rsrp_data():
     if not cellcode or cellcode == "Not Found":
         return jsonify({'error': 'No cell code found for this MSISDN'}), 404
     
-    rsrp_data = fetch_rsrp_data_directly(cellcode)
+    rsrp_data = fetch_rsrp_data_directly(cellcode, zte_rsrp_df, huawei_rsrp_df, ref_df)
     if not rsrp_data:
         return jsonify({'error': 'No RSRP data found'}), 404
     
@@ -1002,7 +410,7 @@ def filter_common_location_rsrp_data():
 
     site_id = str(cell_code)[:6]
     
-    site_rsrp_data = fetch_rsrp_data_by_site_id(site_id)
+    site_rsrp_data = fetch_rsrp_data_by_site_id(site_id, zte_rsrp_df, huawei_rsrp_df)
     
     if not site_rsrp_data:
         return jsonify({'error': f'No RSRP data found for Cell Code {cell_code}'}), 404
@@ -1111,52 +519,8 @@ def ai_overall_summary():
     user_data = get_msisdn_data(msisdn)
     if 'error' in user_data:
         return jsonify({'error': user_data['error']}), 404
-    summary = generate_overall_msisdn_summary(user_data)
+    summary = generate_overall_msisdn_summary(user_data, summarizer)
     return jsonify({'msisdn': msisdn, 'summary': summary})
-
-def fetch_rsrp_data_by_site_id(site_id):
-    global zte_rsrp_df, huawei_rsrp_df
-    
-    site_id_str = str(site_id)[:6]
-    
-    zte_filtered = zte_rsrp_df[zte_rsrp_df['Site_ID'].astype(str) == site_id_str]
-    huawei_filtered = huawei_rsrp_df[huawei_rsrp_df['Site_ID'].astype(str) == site_id_str]
-    
-    if zte_filtered.empty and huawei_filtered.empty:
-        return []
-    
-    site_info = []
-    
-    # Process ZTE data 
-    for _, rsrp_row in zte_filtered.iterrows():
-        site_info.append({
-            'Site_Name': rsrp_row['Site Name'],
-            'Cell_Name': rsrp_row['Cell Name'],
-            'Site_ID': rsrp_row['Site_ID'],
-            'RSRP Range 1 (>-105dBm) %': round(float(rsrp_row['RSRP Range 1 (>-105dBm) %']) * 100, 2),
-            'RSRP Range 2 (-105~-110dBm) %': round(float(rsrp_row['RSRP Range 2 (-105~-110dBm) %']) * 100, 2),
-            'RSRP Range 3 (-110~-115dBm) %': round(float(rsrp_row['RSRP Range 3 (-110~-115dBm) %']) * 100, 2),
-            'RSRP < -115dBm %': round(float(rsrp_row['RSRP < -115dBm']) * 100, 2),
-            'Source': 'ZTE'
-        })
-    
-    # Process Huawei data
-    for _, rsrp_row in huawei_filtered.iterrows():
-        site_info.append({
-            'Site_Name': rsrp_row['Site Name'],
-            'Cell_Name': rsrp_row['Cell Name'],
-            'Site_ID': rsrp_row['Site_ID'],
-            'RSRP Range 1 (>-105dBm) %': round(float(rsrp_row['RSRP Range 1 (>-105dBm) %']), 2),
-            'RSRP Range 2 (-105~-110dBm) %': round(float(rsrp_row['RSRP Range 2 (-105~-110dBm) %']), 2),
-            'RSRP Range 3 (-110~-115dBm) %': round(float(rsrp_row['RSRP Range 3 (-110~-115dBm) %']), 2),
-            'RSRP < -115dBm %': round(float(rsrp_row['RSRP < -115dBm']), 2),
-            'Source': 'Huawei'
-        })
-    
-    # Add calculated columns to all entries
-    site_info = add_calculated_rsrp_columns(site_info)
-    
-    return site_info
 
 # --- 3G Call Drop Rate Data API for JS Plotly Chart ---
 @app.route('/call-drop-rate-3g-data')
@@ -1214,130 +578,6 @@ def call_drop_rate_3g_data():
         })
     except Exception as e:
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
-    
-
-
-def filter_and_sort_rsrp_data(rsrp_data, filters=None, sort_by=None, sort_order='asc'):
-    if not rsrp_data:
-        return []
-    filtered_data = rsrp_data.copy()
-    if filters:
-        for key, value in filters.items():
-            if value and str(value).strip():
-                filtered_data = apply_type_sensitive_filter(filtered_data, key, value)
-    sortable_cols = [
-        'Cell_Name', 'Site_ID', 'Site_Name',
-        'RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %',
-        'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %'
-    ]
-    if sort_by and sort_by in sortable_cols:
-        try:
-            is_numeric = sort_by in sortable_cols[3:]
-            filtered_data.sort(
-                key=lambda x: float(x.get(sort_by, 0)) if is_numeric else str(x.get(sort_by, '')).lower(),
-                reverse=(sort_order == 'desc')
-            )
-        except (ValueError, TypeError):
-            pass
-    return filtered_data
-
-def apply_type_sensitive_filter(data, filter_key, filter_value):
-    value_str = str(filter_value).strip()
-    
-    if filter_key in ['Cell_Name', 'Site_ID', 'Site_Name']:
-        return apply_text_filter(data, filter_key, value_str)
-    
-    elif filter_key.endswith('_min'):
-        return apply_numeric_min_filter(data, filter_key, value_str)
-    elif filter_key.endswith('_max'):
-        return apply_numeric_max_filter(data, filter_key, value_str)
-    
-    else:
-        return apply_auto_detect_filter(data, filter_key, value_str)
-
-def apply_text_filter(data, column, value):
-    if value.startswith('='):
-        target = value[1:].lower()
-        return [
-            row for row in data 
-            if str(row.get(column, '')).lower() == target
-        ]
-    
-    elif value.startswith('!='):
-        target = value[2:].lower()
-        return [
-            row for row in data 
-            if str(row.get(column, '')).lower() != target
-        ]
-    
-    elif '*' in value or '%' in value:
-        return apply_wildcard_filter(data, column, value)
-    
-    elif value.startswith('/') and value.endswith('/') and len(value) > 2:
-        return apply_regex_filter(data, column, value[1:-1])
-    
-    else:
-        return [
-            row for row in data 
-            if value.lower() in str(row.get(column, '')).lower()
-        ]
-
-def apply_numeric_min_filter(data, filter_key, value):
-    rsrp_column = filter_key.replace('_min', '')
-    if rsrp_column in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %', 
-                      'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
-        try:
-            min_value = float(value)
-            return [
-                row for row in data 
-                if float(row.get(rsrp_column, 0)) >= min_value
-            ]
-        except (ValueError, TypeError):
-            return data
-    return data
-
-def apply_numeric_max_filter(data, filter_key, value):
-    rsrp_column = filter_key.replace('_max', '')
-    if rsrp_column in ['RSRP Range 1 (>-105dBm) %', 'RSRP Range 2 (-105~-110dBm) %', 
-                      'RSRP Range 3 (-110~-115dBm) %', 'RSRP < -115dBm %']:
-        try:
-            max_value = float(value)
-            return [
-                row for row in data 
-                if float(row.get(rsrp_column, 0)) <= max_value
-            ]
-        except (ValueError, TypeError):
-            return data
-    return data
-
-def apply_auto_detect_filter(data, column, value):
-    return apply_text_filter(data, column, value)
-
-def apply_wildcard_filter(data, column, pattern):
-    import re
-    regex_pattern = pattern.replace('*', '.*').replace('%', '.*')
-    try:
-        compiled_pattern = re.compile(regex_pattern, re.IGNORECASE)
-        return [
-            row for row in data
-            if compiled_pattern.search(str(row.get(column, '')))
-        ]
-    except re.error:
-        return apply_text_filter(data, column, pattern)
-
-def apply_regex_filter(data, column, pattern):
-    import re
-    try:
-        compiled_pattern = re.compile(pattern, re.IGNORECASE)
-        return [
-            row for row in data
-            if compiled_pattern.search(str(row.get(column, '')))
-        ]
-    except re.error:
-        return []
-
-dash_app = create_dash_app(app, latest_result)
-
 
 # Route for 3G Call Drop Rate Graph HTML page (Plotly/JS visualization)
 @app.route('/call-drop-rate-3g-graph')
@@ -1345,57 +585,43 @@ def call_drop_rate_3g_graph():
     return render_template('call_drop_rate_3g_graph.html')
 
 
-# --- HLR VLR Subbase Multi-Line Data API ---
+@app.route('/call_drop_rate_3g_table')
+def call_drop_rate_3g_table():
+    return render_template('call_drop_rate_3g_table.html')
+
 @app.route('/hlr-vlr-subbase-data')
 def hlr_vlr_subbase_data():
-    """API endpoint to return all columns from HLR_VLR_Subbase.xlsx sheet 1 for multi-line chart visualization."""
-    import numpy as np
     import pandas as pd
-    import os
+    import numpy as np
     from flask import jsonify
+    file_path = os.path.join(data_files_dir, 'HLR_VLR_Subbase.xls')
     try:
-        file_path = os.path.join(data_files_dir, 'HLR_VLR Subbase.xls')
-        if not os.path.exists(file_path):
-            return jsonify({'error': 'HLR_VLR_Subbase.xls not found'}), 404
-
-        # Read sheet 1 (index 0-based)
-        try:
-            df = pd.read_excel(file_path, sheet_name=1)
-        except Exception:
-            try:
-                df = pd.read_excel(file_path, sheet_name=0)
-            except Exception as e:
-                return jsonify({'error': f'Failed to read Excel: {str(e)}'}), 500
-
+        df = pd.read_excel(file_path, sheet_name='Daily HLR Subs')
         df = df.rename(columns=lambda x: str(x).strip())
-        available_cols = list(df.columns)
-        # Use the first column as x-axis (usually date or index)
         x_col = df.columns[0]
         x = df[x_col].astype(str).tolist()
-        # Prepare y-series for all other columns
-        y_series = {}
-        for col in df.columns[1:]:
-            # Replace NaN/inf with None for JSON serialization
-            y_series[col] = df[col].replace({np.nan: None, np.inf: None, -np.inf: None}).tolist()
+        y_series = {col: df[col].replace({np.nan: None, np.inf: None, -np.inf: None}).tolist() for col in df.columns[1:]}
         return jsonify({
             "x": x,
             "y_series": y_series,
             "x_col": x_col,
-            "y_cols": list(df.columns[1:]),
-            "available_columns": available_cols
+            "y_cols": list(df.columns[1:])
         })
     except Exception as e:
-        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+        return jsonify({'error': str(e)}), 500
+    
+# Route for HLR/VLR Subbase JS-based graph
+@app.route('/hlr-vlr-subs-graph')
+def hlr_vlr_subs_graph():
+    return render_template('hlr_vlr_subs_graph.html')
 
-@app.route('/call-drop-rate-3g-table')
-def call_drop_rate_3g_table():
-    return render_template('call_drop_rate_3g_table.html')
+dash_app = create_dash_app(app, latest_result)
 
-
-
-
+# Add Dash app for call drop rate graph at /call-drop-rate-graph
 application = DispatcherMiddleware(app.wsgi_app, {
-    '/usage-graph': dash_app.server
+    '/usage-graph': dash_app.server,
+    '/call-drop-rate-graph': call_drop_rate_dash_app.server,
+    '/hlr-vlr-subbase-graph': hlr_vlr_subbase_dash_app.server,
 })
 
 if __name__ == "__main__":

@@ -2,38 +2,63 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>3G Call Drop Rate Graph</title>
+    <title>3G Call Drop Rate Line Graph</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        #call-drop-rate-chart { width: 90vw; height: 70vh; margin: 0 auto; }
+        body { font-family: Arial, sans-serif; background: #f8f8f8; }
+        .chart-controls { margin: 20px; }
+    </style>
 </head>
 <body>
-    <h2>3G Call Drop Rate Over Time</h2>
-    <div id="call-drop-rate-graph" style="width:100%;max-width:900px;height:500px;"></div>
+    <div class="chart-controls">
+        <button onclick="downloadImage()">Download Chart as PNG</button>
+    </div>
+    <div id="call-drop-rate-chart"></div>
     <script>
-        fetch('/call-drop-rate-3g-data')
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    document.getElementById('call-drop-rate-graph').innerText = data.error;
-                    return;
-                }
-                const trace = {
-                    x: data.x,
-                    y: data.y,
-                    type: 'scatter',
-                    mode: 'lines+markers',
-                    name: '3G Call Drop Rate',
-                    line: { color: '#1f77b4', width: 2 }
-                };
-                const layout = {
-                    title: '3G Call Drop Rate (2014+)',
-                    xaxis: { title: data.date_col || 'Date' },
-                    yaxis: { title: data.drop_col || 'Drop Rate (%)' }
-                };
-                Plotly.newPlot('call-drop-rate-graph', [trace], layout, {responsive: true});
-            })
-            .catch(err => {
-                document.getElementById('call-drop-rate-graph').innerText = 'Error loading data.';
-            });
+    async function fetchData() {
+        const resp = await fetch('/call-drop-rate-3g-data');
+        return await resp.json();
+    }
+
+    function renderChart(data) {
+        const trace = {
+            x: data.x,
+            y: data.y,
+            type: 'scatter',
+            mode: 'lines+markers',
+            name: 'Call Drop Rate (%)',
+            line: { color: '#5470C6', width: 2 },
+            marker: { size: 6 }
+        };
+        const layout = {
+            title: '3G Call Drop Rate by Site',
+            xaxis: { title: data.date_col || 'Site Name', tickangle: 45, tickfont: { size: 10 } },
+            yaxis: { title: data.drop_col || 'Call Drop Rate (%)', tickformat: '.2f' },
+            margin: { l: 60, r: 40, t: 80, b: 80 },
+            plot_bgcolor: '#fff',
+            paper_bgcolor: '#fff'
+        };
+        Plotly.newPlot('call-drop-rate-chart', [trace], layout);
+        window.callDropRateChart = document.getElementById('call-drop-rate-chart');
+    }
+
+    function downloadImage() {
+        Plotly.downloadImage(window.callDropRateChart, {
+            format: 'png',
+            filename: 'call_drop_rate_3g_chart',
+            width: 1200,
+            height: 800
+        });
+    }
+
+    fetchData().then(data => {
+        if (data.error) {
+            document.getElementById('call-drop-rate-chart').innerHTML = '<b style="color:red">' + data.error + '</b>';
+        } else {
+            renderChart(data);
+        }
+    });
     </script>
 </body>
 </html>

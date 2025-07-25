@@ -357,14 +357,14 @@
   <!-- Overlay Popup for AI Overview -->
   <div id="ai-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.45); z-index:9999; align-items:center; justify-content:center;">
     <div style="background:#fff; border-radius:12px; max-width:600px; width:90vw; margin:auto; padding:32px 24px; box-shadow:0 8px 32px rgba(0,0,0,0.18); position:relative;">
-      <h4 class="mb-3 text-primary">AI-Based Overview</h4>
+      <h4 class="mb-3 text-primary">Overview</h4>
       <div id="ai-summary-popup-content">
         {% if ai_summary %}
           <pre style="white-space: pre-wrap; word-break: break-word; background: #f8f9fa; border-radius: 6px; padding: 16px; font-size: 1rem; max-height:300px; overflow-y:auto;">{{ ai_summary }}</pre>
         {% else %}
           <div class="text-center">
             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-            <span>Generating AI-based overview...</span>
+            <span>Generating overview...</span>
           </div>
         {% endif %}
       </div>
@@ -379,7 +379,7 @@
     <div class="modal-dialog modal-lg" role="document" style="margin-top: 5vh;">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">AI-Based Overview</h5>
+                <h5 class="modal-title">Overview</h5>
                 <button type="button" class="close" onclick="closeAISummaryPopup()" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1187,7 +1187,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (detailsTab) {
         var overviewBtn = document.createElement('button');
         overviewBtn.className = 'btn btn-outline-primary ms-3';
-        overviewBtn.innerText = 'Show AI Overview';
+        overviewBtn.innerText = 'Overview';
         overviewBtn.onclick = showOverviewPopup;
         detailsTab.parentNode.appendChild(overviewBtn);
     }
