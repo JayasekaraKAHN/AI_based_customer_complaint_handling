@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mapped Locations</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="container mt-4">
+    <h2 class="mb-4">Mapped Recent Location Data</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>site_id</th>
+                <th>cell_code</th>
+                <th>attr_location_latitude</th>
+                <th>attr_location_start_latitude</th>
+                <th>avg_latitude</th>
+                <th>attr_location_longitude</th>
+                <th>attr_location_start_longitude</th>
+                <th>avg_longitude</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in table_data %}
+            <tr>
+                <td>{{ row.site_id }}</td>
+                <td>{{ row.cell_code }}</td>
+                <td>{{ row.attr_location_latitude }}</td>
+                <td>{{ row.attr_location_start_latitude }}</td>
+                <td>{{ row.avg_latitude }}</td>
+                <td>{{ row.attr_location_longitude }}</td>
+                <td>{{ row.attr_location_start_longitude }}</td>
+                <td>{{ row.avg_longitude }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
