@@ -7,6 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet" />
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <style>
     .logout-btn {
       position: absolute;
@@ -17,14 +18,15 @@
 </head>
 
 <body>
-  <div class="container mt-5">
+  <div class="container-fluid mt-5">
     <a href="{{ url_for('logout') }}" class="btn btn-outline-danger logout-btn">
       Logout
     </a>
-    <div class="col-md-6 offset-md-3">
-      <div class="card p-4 shadow-sm">
+    <div class="row">
+      <div class="col-12">
+        <div class="card p-4 shadow-sm">
         <h2 class="mb-4 text-center">
-          <i class="bi bi-robot me-2"></i>AI Overview
+          <i class="bi bi-robot me-2"></i>Overview
         </h2>
         <h4 class="text-center mb-4 text-primary">{{ result['MSISDN'] }}</h4>
         
@@ -36,27 +38,187 @@
           </h5>
           
           {% if ai_summary %}
-          <div class="bg-light p-3 rounded">
-            <pre style="white-space: pre-wrap; word-break: break-word; background: transparent; border: none; margin: 0; font-size: 0.95rem;">{{ ai_summary }}</pre>
+          <div class="bg-light p-3 rounded" style="max-height: 400px; overflow-y: auto;">
+            <pre class="mb-0" style="white-space: pre-wrap; word-break: break-word;">{{ ai_summary }}</pre>
           </div>
           {% else %}
           <div class="text-center text-muted">
             <i class="bi bi-info-circle me-2"></i>
-            AI summary could not be generated for this MSISDN. Please try again or contact support.
+            Summary could not be generated for this MSISDN. Please try again or contact support.
           </div>
           {% endif %}
         </div>
 
+        <!-- Monthly Usage Summary Section -->
+        {% if result and result["Monthly Usage"] %}
+        <div class="mb-4">
+          <h5 class="mb-3">
+            <i class="bi bi-bar-chart-line me-2 text-primary"></i>
+            Monthly Usage Summary
+          </h5>
+          
+          <!-- Usage Statistics Cards -->
+          <div class="row mb-4">
+            <div class="col-md-3 mb-3">
+              <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                  <i class="bi bi-download fs-2 mb-2"></i>
+                  <h6 class="card-title">Total Data Usage</h6>
+                  <p class="card-text fs-5">
+                    {% if result["Monthly Usage"] %}
+                      {{ "%.2f GB"|format((result["Monthly Usage"]|map(attribute='Total Volume (MB)')|sum / 1024) if result["Monthly Usage"]|map(attribute='Total Volume (MB)')|list else 0) }}
+                    {% else %}
+                      0 GB
+                    {% endif %}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3 mb-3">
+              <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                  <i class="bi bi-telephone fs-2 mb-2"></i>
+                  <h6 class="card-title">Voice Usage</h6>
+                  <p class="card-text fs-5">
+                    {% if result["Monthly Usage"] %}
+                      {{ "%d min"|format(result["Monthly Usage"]|map(attribute='Voice Usage (min)')|sum if result["Monthly Usage"]|map(attribute='Voice Usage (min)')|list else 0) }}
+                    {% else %}
+                      0 min
+                    {% endif %}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3 mb-3">
+              <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                  <i class="bi bi-chat-dots fs-2 mb-2"></i>
+                  <h6 class="card-title">SMS Usage</h6>
+                  <p class="card-text fs-5">
+                    {% if result["Monthly Usage"] %}
+                      {{ "%d messages"|format(result["Monthly Usage"]|map(attribute='SMS Usage')|sum if result["Monthly Usage"]|map(attribute='SMS Usage')|list else 0) }}
+                    {% else %}
+                      0 messages
+                    {% endif %}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3 mb-3">
+              <div class="card bg-warning text-white">
+                <div class="card-body text-center">
+                  <i class="bi bi-calendar-month fs-2 mb-2"></i>
+                  <h6 class="card-title">Active Months</h6>
+                  <p class="card-text fs-5">
+                    {% if result["Monthly Usage"] %}
+                      {{ result["Monthly Usage"]|length }} months
+                    {% else %}
+                      0 months
+                    {% endif %}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Usage Trend Summary -->
+          <div class="row mb-4">
+            <div class="col-12">
+              <div class="card">
+                <div class="card-header">
+                  <h6 class="mb-0">
+                    <i class="bi bi-graph-up me-2"></i>
+                    Usage Patterns & Insights
+                  </h6>
+                </div>
+                <div class="card-body">
+                  {% if result["Monthly Usage"] and result["Monthly Usage"]|length > 1 %}
+                    {% set latest_month = result["Monthly Usage"][-1] %}
+                    {% set previous_month = result["Monthly Usage"][-2] %}
+                    <div class="row">
+                      <div class="col-md-6">
+                        <strong>Latest Month Activity:</strong>
+                        <ul class="list-unstyled mt-2">
+                          <li><i class="bi bi-calendar3 me-2 text-primary"></i>{{ latest_month['Month'] }}</li>
+                          <li><i class="bi bi-hdd me-2 text-success"></i>Data: {{ "%.2f MB"|format(latest_month['Total Volume (MB)'] or 0) }}</li>
+                          <li><i class="bi bi-telephone me-2 text-info"></i>Voice: {{ latest_month['Voice Usage (min)'] or 0 }} min</li>
+                          <li><i class="bi bi-chat me-2 text-warning"></i>SMS: {{ latest_month['SMS Usage'] or 0 }} messages</li>
+                        </ul>
+                      </div>
+                      <div class="col-md-6">
+                        <strong>Usage Trend:</strong>
+                        <ul class="list-unstyled mt-2">
+                          {% set data_change = ((latest_month['Total Volume (MB)'] or 0) - (previous_month['Total Volume (MB)'] or 0)) %}
+                          {% set voice_change = ((latest_month['Voice Usage (min)'] or 0) - (previous_month['Voice Usage (min)'] or 0)) %}
+                          <li>
+                            <i class="bi bi-{% if data_change >= 0 %}arrow-up text-success{% else %}arrow-down text-danger{% endif %} me-2"></i>
+                            Data: {% if data_change >= 0 %}+{% endif %}{{ "%.1f MB"|format(data_change) }}
+                          </li>
+                          <li>
+                            <i class="bi bi-{% if voice_change >= 0 %}arrow-up text-success{% else %}arrow-down text-danger{% endif %} me-2"></i>
+                            Voice: {% if voice_change >= 0 %}+{% endif %}{{ voice_change }} min
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  {% else %}
+                    <p class="text-muted mb-0">
+                      <i class="bi bi-info-circle me-2"></i>
+                      Insufficient data for trend analysis. At least 2 months of data required.
+                    </p>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Usage Charts -->
+          <div class="row">
+            <!-- Line Chart -->
+            <div class="col-md-6 mb-4">
+              <div class="card border p-3">
+                <div id="monthlyVolumeChart" style="width: 100%; height: 400px"></div>
+              </div>
+            </div>
+
+            <!-- Bar Chart -->
+            <div class="col-md-6 mb-4">
+              <div class="card border p-3">
+                <div id="totalVolumeChart" style="width: 100%; height: 400px"></div>
+              </div>
+            </div>
+
+            <!-- Voice Usage Chart -->
+            <div class="col-md-6 mb-4">
+              <div class="card border p-3">
+                <div id="voiceUsageChart" style="width: 100%; height: 400px"></div>
+              </div>
+            </div>
+
+            <!-- SMS Usage Chart -->
+            <div class="col-md-6 mb-4">
+              <div class="card border p-3">
+                <div id="smsUsageChart" style="width: 100%; height: 400px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
         <!-- Action Buttons -->
-        <div class="d-grid gap-2">
-          <a href="{{ url_for('index', detailed='true', msisdn=result['MSISDN']) }}" class="btn btn-primary">
-            <i class="bi bi-list-ul me-2"></i>
-            View Detailed Analysis
-          </a>
-          <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-2"></i>
-            New Search
-          </a>
+        <div class="row mt-4">
+          <div class="col-md-6 mb-2">
+            <a href="{{ url_for('index', detailed='true', msisdn=result['MSISDN']) }}" class="btn btn-primary w-100">
+              <i class="bi bi-list-ul me-2"></i>
+              View Detailed Analysis
+            </a>
+          </div>
+          <div class="col-md-6 mb-2">
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary w-100">
+              <i class="bi bi-arrow-left me-2"></i>
+              New Search
+            </a>
+          </div>
         </div>
       </div>
     </div>
@@ -64,6 +226,29 @@
 
   <!-- Bootstrap JS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+  
+  <!-- External JavaScript Files -->
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+
+  {% if result and result["Monthly Usage"] %}
+  <script id="usage-data" type="application/json">{{ result["Monthly Usage"] | tojson | safe }}</script>
+  {% endif %}
+
+  <script>
+    // Initialize charts with usage data from server
+    document.addEventListener('DOMContentLoaded', function () {
+      const usageDataElement = document.getElementById('usage-data');
+      if (usageDataElement && typeof initializeUsageCharts === 'function') {
+        try {
+          const usage = JSON.parse(usageDataElement.textContent);
+          initializeUsageCharts(usage);
+        } catch (error) {
+          console.error('Error parsing usage data:', error);
+        }
+      }
+    });
+  </script>
 </body>
 
 </html>
