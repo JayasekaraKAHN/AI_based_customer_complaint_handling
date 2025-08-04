@@ -146,6 +146,33 @@ def home():
 
 @app.route('/index')
 def index():
+    # Check if this is a detailed view request from overview page
+    detailed = request.args.get('detailed')
+    msisdn = request.args.get('msisdn')
+    
+    if detailed and msisdn:
+        global latest_result
+        # Check if we have data for this MSISDN
+        if latest_result and latest_result.get('MSISDN') == msisdn:
+            result = latest_result
+            # Generate AI summary
+            ai_summary = generate_overall_msisdn_summary(result, summarizer)
+            
+            # Create map
+            try:
+                map_obj = create_location_map(result)
+                static_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'static'))
+                if not os.path.exists(static_path):
+                    os.makedirs(static_path)
+                map_path = os.path.join(static_path, 'temp_map.html')
+                map_obj.save(map_path)
+                has_map = True
+            except Exception as e:
+                print(f"Error creating map: {e}")
+                has_map = False
+            
+            return render_template('index.html', result=result, has_map=has_map, ai_summary=ai_summary, from_overview=True)
+    
     return render_template('index.html')
 
 @app.before_request
@@ -259,7 +286,57 @@ def search():
         print(f"Error creating map: {e}")
         has_map = False
 
-    return render_template('index.html', result=result, has_map=has_map, ai_summary=ai_summary)
+    # Redirect to overview page instead of showing index with results
+    return redirect(url_for('overview', msisdn=msisdn))
+
+# New overview route
+@app.route('/overview/<msisdn>')
+def overview(msisdn):
+    global latest_result
+    
+    # Check if we have recent data for this MSISDN
+    if not latest_result or latest_result.get('MSISDN') != msisdn:
+        # If no recent data, fetch it
+        result = get_msisdn_data(
+            msisdn,
+            INPUT_FILE,
+            SIM_TYPE_MAPPING,
+            ref_df,
+            tac_df,
+            usage_df,
+            USAGE_FILES,
+            VLRD,
+            lambda site_id: fetch_rsrp_data_by_site_id(site_id, zte_rsrp_df, huawei_rsrp_df),
+            lambda cell_code: fetch_rsrp_data_directly(cell_code, zte_rsrp_df, huawei_rsrp_df, ref_df),
+            lambda site_id: get_lte_utilization_by_site_id(site_id, lte_utilization_df),
+            lambda cell_code: get_lte_utilization_by_cell_code(cell_code, lte_utilization_df)
+        )
+        if "error" in result:
+            flash(f"Error loading data for MSISDN {msisdn}: {result['error']}", "error")
+            return redirect(url_for('index'))
+        
+        latest_result = result.copy()
+        latest_result['MSISDN'] = msisdn
+    else:
+        result = latest_result
+
+    # Generate AI summary
+    ai_summary = generate_overall_msisdn_summary(result, summarizer)
+
+    # Create map
+    try:
+        map_obj = create_location_map(result)
+        static_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'static'))
+        if not os.path.exists(static_path):
+            os.makedirs(static_path)
+        map_path = os.path.join(static_path, 'temp_map.html')
+        map_obj.save(map_path)
+        has_map = True
+    except Exception as e:
+        print(f"Error creating map: {e}")
+        has_map = False
+
+    return render_template('overview.html', result=result, has_map=has_map, ai_summary=ai_summary)
 
 #user count by site
 
