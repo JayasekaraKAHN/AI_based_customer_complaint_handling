@@ -397,6 +397,15 @@
 
   {% if result %}
   <div class="container-fluid px-4 mt-4">
+    <!-- Back to Overview Button (if coming from overview) -->
+    {% if from_overview %}
+    <div class="mb-3">
+      <a href="{{ url_for('overview', msisdn=result.MSISDN) }}" class="btn btn-primary">
+        <i class="bi bi-arrow-left me-2"></i>Back to Overview
+      </a>
+    </div>
+    {% endif %}
+    
     <!-- Navigation Tabs -->
     <ul class="nav nav-tabs" id="infoTabs" role="tablist">
       <li class="nav-item" role="presentation">
@@ -1208,6 +1217,13 @@
   <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
   <script src="{{ url_for('static', filename='js/rsrp-filters.js') }}"></script>
 
+    {% if result and result["Monthly Usage"] %}
+    <script id="usage-data" type="application/json">{{ result["Monthly Usage"] | tojson | safe }}</script>
+    {% endif %}
+
+    <!-- Template Variables -->
+    <script id="template-vars" type="application/json">{{ {'from_overview': from_overview if from_overview is defined else false} | tojson | safe }}</script>
+
 
   <script>
     // Initialize charts with usage data from server
@@ -1319,29 +1335,53 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('aiSummaryPopup').style.display = 'none';
     }
 
-    // Show popup if AI summary is present and prevent auto-close
+    // Show popup if AI summary is present and we're in detailed view
     function showPopupIfSummaryPresent() {
         var aiSummary = document.getElementById('aiSummaryContent');
-        if (aiSummary && aiSummary.textContent.trim().length > 0) {
+        var templateVarsElement = document.getElementById('template-vars');
+        var fromOverview = false;
+        
+        if (templateVarsElement) {
+            try {
+                var templateVars = JSON.parse(templateVarsElement.textContent);
+                fromOverview = templateVars.from_overview || false;
+            } catch (error) {
+                console.error('Error parsing template vars:', error);
+            }
+        }
+        
+        // Only show popup in detailed view, not when coming from overview
+        if (aiSummary && aiSummary.textContent.trim().length > 0 && !fromOverview) {
             showAISummaryPopup();
         }
     }
 
-    // Show popup instantly after page load (search result)
+    // Show popup only for direct searches, not when coming from overview
     document.addEventListener('DOMContentLoaded', function() {
         showPopupIfSummaryPresent();
     });
 
-// Add button to navigate back to AI Overview popup
+// Add button to navigate back to AI Overview popup (for detailed view)
 function showOverviewPopup() {
-    // Show the overlayed AI summary popup
     showAISummaryPopup();
 }
 
-// Add the button to the tab navigation area (Details tab)
+// Add the overview button only if not coming from overview page
 document.addEventListener('DOMContentLoaded', function() {
     var detailsTab = document.getElementById('details-tab');
-    if (detailsTab) {
+    var templateVarsElement = document.getElementById('template-vars');
+    var fromOverview = false;
+    
+    if (templateVarsElement) {
+        try {
+            var templateVars = JSON.parse(templateVarsElement.textContent);
+            fromOverview = templateVars.from_overview || false;
+        } catch (error) {
+            console.error('Error parsing template vars:', error);
+        }
+    }
+    
+    if (detailsTab && !fromOverview) {
         var overviewBtn = document.createElement('button');
         overviewBtn.className = 'btn btn-outline-primary ms-3';
         overviewBtn.innerText = 'Overview';
