@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LTE Utilization Analysis</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            margin-bottom: 30px;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 15px;
+        }
+        .header h1 {
+            color: #333;
+            margin: 0;
+            font-size: 2.5em;
+        }
+        .header p {
+            color: #666;
+            margin: 5px 0 0 0;
+            font-size: 1.1em;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        .stat-card .value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin: 0;
+        }
+        .filters {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .filter-group label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .filter-group input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+            align-items: end;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+        .table-container {
+            overflow-x: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1200px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        .utilization-high {
+            background-color: #dc3545;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .utilization-medium {
+            background-color: #ffc107;
+            color: #212529;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .utilization-low {
+            background-color: #28a745;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+            gap: 10px;
+        }
+        .pagination a {
+            padding: 8px 12px;
+            text-decoration: none;
+            border: 1px solid #ddd;
+            color: #007bff;
+            border-radius: 4px;
+        }
+        .pagination a.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .pagination a:hover:not(.active) {
+            background-color: #f5f5f5;
+        }
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📶 LTE Utilization Analysis</h1>
+            <p>Monitor LTE network utilization and performance metrics</p>
+        </div>
+
+        {% if summary %}
+        <div class="stats">
+            <div class="stat-card">
+                <h3>Total Cells</h3>
+                <div class="value">{{ summary.total_cells or 0 }}</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Sites</h3>
+                <div class="value">{{ summary.total_sites or 0 }}</div>
+            </div>
+            <div class="stat-card">
+                <h3>Avg Cell Utilization</h3>
+                <div class="value">{{ "%.1f"|format(summary.avg_cell_utilization or 0) }}%</div>
+            </div>
+            <div class="stat-card">
+                <h3>Avg DL Throughput</h3>
+                <div class="value">{{ "%.1f"|format(summary.avg_dl_throughput or 0) }}</div>
+                <small>Mbps</small>
+            </div>
+        </div>
+        {% endif %}
+
+        <form method="GET" class="filters">
+            <div class="filter-group">
+                <label for="site_id">Site ID:</label>
+                <input type="text" id="site_id" name="site_id" value="{{ request.args.get('site_id', '') }}" placeholder="Filter by Site ID">
+            </div>
+            <div class="filter-group">
+                <label for="cell_id">Cell ID:</label>
+                <input type="text" id="cell_id" name="cell_id" value="{{ request.args.get('cell_id', '') }}" placeholder="Filter by Cell ID">
+            </div>
+            <div class="filter-group">
+                <label for="district">District:</label>
+                <input type="text" id="district" name="district" value="{{ request.args.get('district', '') }}" placeholder="Filter by District">
+            </div>
+            <div class="filter-group">
+                <label for="region">Region:</label>
+                <input type="text" id="region" name="region" value="{{ request.args.get('region', '') }}" placeholder="Filter by Region">
+            </div>
+            <div class="filter-buttons">
+                <button type="submit" class="btn btn-primary">Apply Filters</button>
+                <a href="{{ url_for('lte_utilization_table') }}" class="btn btn-secondary">Clear</a>
+            </div>
+        </form>
+
+        {% if data %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Cell ID</th>
+                        <th>Site ID</th>
+                        <th>Site Name</th>
+                        <th>Sector Utilization (%)</th>
+                        <th>Cell Utilization (%)</th>
+                        <th>DL Throughput (Mbps)</th>
+                        <th>UL Throughput (Mbps)</th>
+                        <th>Radio Resource Usage (%)</th>
+                        <th>District</th>
+                        <th>Region</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in data %}
+                    <tr>
+                        <td>{{ row['Cell ID'] or 'N/A' }}</td>
+                        <td>{{ row['Site ID'] or 'N/A' }}</td>
+                        <td>{{ row['Site Name'] or 'N/A' }}</td>
+                        <td>
+                            {% set sector_util = row['Sector Utilization (%)'] %}
+                            {% if sector_util is not none %}
+                                {% if sector_util > 80 %}
+                                    <span class="utilization-high">{{ "%.2f"|format(sector_util) }}%</span>
+                                {% elif sector_util > 60 %}
+                                    <span class="utilization-medium">{{ "%.2f"|format(sector_util) }}%</span>
+                                {% else %}
+                                    <span class="utilization-low">{{ "%.2f"|format(sector_util) }}%</span>
+                                {% endif %}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% set cell_util = row['Cell Utilization (%)'] %}
+                            {% if cell_util is not none %}
+                                {% if cell_util > 80 %}
+                                    <span class="utilization-high">{{ "%.2f"|format(cell_util) }}%</span>
+                                {% elif cell_util > 60 %}
+                                    <span class="utilization-medium">{{ "%.2f"|format(cell_util) }}%</span>
+                                {% else %}
+                                    <span class="utilization-low">{{ "%.2f"|format(cell_util) }}%</span>
+                                {% endif %}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td>{{ "%.2f"|format(row['Cell DL Average thoughput BH (Mbps)']) if row['Cell DL Average thoughput BH (Mbps)'] is not none else 'N/A' }}</td>
+                        <td>{{ "%.2f"|format(row['Cell UL Average thoughput BH (Mbps)']) if row['Cell UL Average thoughput BH (Mbps)'] is not none else 'N/A' }}</td>
+                        <td>{{ "%.2f"|format(row['Radio resource usage BH (DL) %']) if row['Radio resource usage BH (DL) %'] is not none else 'N/A' }}%</td>
+                        <td>{{ row['District'] or 'N/A' }}</td>
+                        <td>{{ row['Region'] or 'N/A' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top: 20px; text-align: center; color: #666;">
+            Showing {{ data|length }} records
+            {% if request.args.get('site_id') or request.args.get('cell_id') or request.args.get('district') or request.args.get('region') %}
+                (filtered)
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="no-data">
+            <p>No LTE utilization data available.</p>
+            {% if request.args.get('site_id') or request.args.get('cell_id') or request.args.get('district') or request.args.get('region') %}
+                <p>Try adjusting your filters or <a href="{{ url_for('lte_utilization_table') }}">clear all filters</a>.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>

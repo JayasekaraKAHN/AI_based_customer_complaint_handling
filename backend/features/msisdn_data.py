@@ -1,4 +1,4 @@
-def get_msisdn_data(msisdn, INPUT_FILE, SIM_TYPE_MAPPING, ref_df, tac_df, usage_df, USAGE_FILES, VLRD, fetch_rsrp_data_by_site_id, fetch_rsrp_data_directly):
+def get_msisdn_data(msisdn, INPUT_FILE, SIM_TYPE_MAPPING, ref_df, tac_df, usage_df, USAGE_FILES, VLRD, fetch_rsrp_data_by_site_id, fetch_rsrp_data_directly, fetch_lte_util_by_site_id=None, fetch_lte_util_by_cell_code=None):
     with open(INPUT_FILE, "r") as file:
         lines = file.readlines()
     for line in lines:
@@ -119,17 +119,56 @@ def get_msisdn_data(msisdn, INPUT_FILE, SIM_TYPE_MAPPING, ref_df, tac_df, usage_
                                     cell_data['RSRP_DATA'] = rsrp_data_for_site if rsrp_data_for_site else []
                                 except Exception as e:
                                     cell_data['RSRP_DATA'] = []
+                                
+                                # Add LTE utilization data for this common cell location
+                                try:
+                                    if fetch_lte_util_by_site_id:
+                                        lte_util_data_for_site = fetch_lte_util_by_site_id(site_id)
+                                        cell_data['LTE_UTIL_DATA'] = lte_util_data_for_site if lte_util_data_for_site else []
+                                    else:
+                                        cell_data['LTE_UTIL_DATA'] = []
+                                except Exception as e:
+                                    cell_data['LTE_UTIL_DATA'] = []
+                                
+                                # Also try to get LTE data by specific cell code if site-level data is empty
+                                if not cell_data.get('LTE_UTIL_DATA') and fetch_lte_util_by_cell_code:
+                                    try:
+                                        lte_util_data_for_cell = fetch_lte_util_by_cell_code(cell_data['CELL_CODE'])
+                                        cell_data['LTE_UTIL_DATA'] = lte_util_data_for_cell if lte_util_data_for_cell else []
+                                    except Exception as e:
+                                        pass
                             common_cells.append(cell_data)
             except Exception as e:
                 common_cells = []
             rsrp_data = []
+            lte_util_data = []
             if cellcode and cellcode != "Not Found":
+                # Get RSRP data for the main cell (recent location)
                 try:
                     rsrp_data = fetch_rsrp_data_directly(cellcode)
                     if not rsrp_data:
                         rsrp_data = []
                 except Exception as e:
                     rsrp_data = []
+                
+                # Get LTE utilization data for the main cell (recent location)
+                # Try by cell code first (more specific), then by site ID
+                try:
+                    if fetch_lte_util_by_cell_code:
+                        lte_util_data = fetch_lte_util_by_cell_code(cellcode)
+                        if not lte_util_data:
+                            lte_util_data = []
+                    else:
+                        lte_util_data = []
+                    
+                    # If no data found by cell code, try by site ID as fallback
+                    if not lte_util_data and fetch_lte_util_by_site_id:
+                        site_id = str(cellcode)[:6]  # Extract site ID from cell code
+                        lte_util_data = fetch_lte_util_by_site_id(site_id)
+                        if not lte_util_data:
+                            lte_util_data = []
+                except Exception as e:
+                    lte_util_data = []
             result = {
                 "MSISDN": msisdn,
                 "IMSI": imsi,
@@ -156,7 +195,8 @@ def get_msisdn_data(msisdn, INPUT_FILE, SIM_TYPE_MAPPING, ref_df, tac_df, usage_
                 "Primary Hardware Type": primary_hardware_type,
                 "Monthly Usage": monthly_usage,
                 "Common Cell Locations": common_cells,
-                "RSRP Data": rsrp_data
+                "RSRP Data": rsrp_data,
+                "LTE Utilization Data": lte_util_data
             }
             return result
     return {"error": "MSISDN not found"}

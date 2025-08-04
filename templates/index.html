@@ -6,6 +6,7 @@
   <title>MSISDN Information</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet" />
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <style>
     .tab-content {
@@ -422,6 +423,24 @@
           RSRP Data
         </button>
       </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="lte-util-tab" data-bs-toggle="tab" data-bs-target="#lte-util" type="button" role="tab"
+          aria-controls="lte-util" aria-selected="false">
+          LTE Utilization
+        </button>
+      </li>
+      <!-- <li class="nav-item" role="presentation">
+        <button class="nav-link" id="nearest-locations-tab" data-bs-toggle="tab" data-bs-target="#nearest-locations" type="button" role="tab"
+          aria-controls="nearest-locations" aria-selected="false">
+          Nearest Locations
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="network-performance-tab" data-bs-toggle="tab" data-bs-target="#network-performance" type="button" role="tab"
+          aria-controls="network-performance" aria-selected="false">
+          Network Performance
+        </button>
+      </li> -->
 
     </ul>
 
@@ -1039,6 +1058,147 @@
           {% endif %}
         </div>
       </div>
+
+      <!-- LTE Utilization Tab -->
+      <div class="tab-pane fade" id="lte-util" role="tabpanel" aria-labelledby="lte-util-tab">
+        <div class="card p-4 mt-3">
+          <h5 class="mb-3">LTE Utilization Data</h5>
+          
+          {% if result['LTE Utilization Data'] and result['LTE Utilization Data']|length > 0 %}
+          <div class="table-responsive">
+            <table class="table table-striped table-hover">
+              <thead class="table-dark">
+                <tr>
+                  <th>Cell ID</th>
+                  <th>Site ID</th>
+                  <th>Site Name</th>
+                  <th>Sector Utilization (%)</th>
+                  <th>Cell Utilization (%)</th>
+                  <th>Cell DL Average Throughput BH (Mbps)</th>
+                  <th>Cell UL Average Throughput BH (Mbps)</th>
+                  <th>Radio Resource Usage BH (DL) %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for lte_data in result['LTE Utilization Data'] %}
+                <tr>
+                  <td>{{ lte_data['Cell ID'] or 'N/A' }}</td>
+                  <td>{{ lte_data['Site ID'] or 'N/A' }}</td>
+                  <td>{{ lte_data['Site Name'] or 'N/A' }}</td>
+                  <td>
+                    {% set sector_util = lte_data['Sector Utilization (%)'] %}
+                    {% if sector_util is not none %}
+                      {% if sector_util > 80 %}
+                        <span class="badge bg-danger">{{ "%.2f"|format(sector_util) }}%</span>
+                      {% elif sector_util > 60 %}
+                        <span class="badge bg-warning">{{ "%.2f"|format(sector_util) }}%</span>
+                      {% else %}
+                        <span class="badge bg-success">{{ "%.2f"|format(sector_util) }}%</span>
+                      {% endif %}
+                    {% else %}
+                      <span class="text-muted">N/A</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% set cell_util = lte_data['Cell Utilization (%)'] %}
+                    {% if cell_util is not none %}
+                      {% if cell_util > 80 %}
+                        <span class="badge bg-danger">{{ "%.2f"|format(cell_util) }}%</span>
+                      {% elif cell_util > 60 %}
+                        <span class="badge bg-warning">{{ "%.2f"|format(cell_util) }}%</span>
+                      {% else %}
+                        <span class="badge bg-success">{{ "%.2f"|format(cell_util) }}%</span>
+                      {% endif %}
+                    {% else %}
+                      <span class="text-muted">N/A</span>
+                    {% endif %}
+                  </td>
+                  <td>{{ "%.2f"|format(lte_data['Cell DL Average thoughput BH (Mbps)']) if lte_data['Cell DL Average thoughput BH (Mbps)'] is not none else 'N/A' }}</td>
+                  <td>{{ "%.2f"|format(lte_data['Cell UL Average thoughput BH (Mbps)']) if lte_data['Cell UL Average thoughput BH (Mbps)'] is not none else 'N/A' }}</td>
+                  <td>{{ "%.2f"|format(lte_data['Radio resource usage BH (DL) %']) if lte_data['Radio resource usage BH (DL) %'] is not none else 'N/A' }}%</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          
+          <!-- LTE Utilization from Common Cell Locations -->
+          {% if result['Common Cell Locations'] %}
+          <h6 class="mt-4 mb-3">LTE Utilization from Common Cell Locations</h6>
+          {% for common_cell in result['Common Cell Locations'] %}
+            {% if common_cell['LTE_UTIL_DATA'] and common_cell['LTE_UTIL_DATA']|length > 0 %}
+            <div class="card mb-3">
+              <div class="card-header">
+                <h6 class="mb-0">{{ common_cell['SITE_NAME'] }} ({{ common_cell['CELL_CODE'] }})</h6>
+                <small class="text-muted">District: {{ common_cell['DISTRICT'] }}, Region: {{ common_cell['REGION'] }}</small>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-sm table-striped">
+                    <thead>
+                      <tr>
+                        <th>Cell ID</th>
+                        <th>Sector Utilization (%)</th>
+                        <th>Cell Utilization (%)</th>
+                        <th>Cell DL Average Throughput BH (Mbps)</th>
+                        <th>Cell UL Average Throughput BH (Mbps)</th>
+                        <th>Radio Resource Usage BH (DL) %</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for lte_data in common_cell['LTE_UTIL_DATA'] %}
+                      <tr>
+                        <td>{{ lte_data['Cell ID'] or 'N/A' }}</td>
+                        <td>
+                          {% set sector_util = lte_data['Sector Utilization (%)'] %}
+                          {% if sector_util is not none %}
+                            {% if sector_util > 80 %}
+                              <span class="badge bg-danger bg-opacity-75">{{ "%.1f"|format(sector_util) }}%</span>
+                            {% elif sector_util > 60 %}
+                              <span class="badge bg-warning bg-opacity-75">{{ "%.1f"|format(sector_util) }}%</span>
+                            {% else %}
+                              <span class="badge bg-success bg-opacity-75">{{ "%.1f"|format(sector_util) }}%</span>
+                            {% endif %}
+                          {% else %}
+                            N/A
+                          {% endif %}
+                        </td>
+                        <td>
+                          {% set cell_util = lte_data['Cell Utilization (%)'] %}
+                          {% if cell_util is not none %}
+                            {% if cell_util > 80 %}
+                              <span class="badge bg-danger bg-opacity-75">{{ "%.1f"|format(cell_util) }}%</span>
+                            {% elif cell_util > 60 %}
+                              <span class="badge bg-warning bg-opacity-75">{{ "%.1f"|format(cell_util) }}%</span>
+                            {% else %}
+                              <span class="badge bg-success bg-opacity-75">{{ "%.1f"|format(cell_util) }}%</span>
+                            {% endif %}
+                          {% else %}
+                            N/A
+                          {% endif %}
+                        </td>
+                        <td>{{ "%.1f"|format(lte_data['Cell DL Average thoughput BH (Mbps)']) if lte_data['Cell DL Average thoughput BH (Mbps)'] is not none else 'N/A' }} Mbps</td>
+                        <td>{{ "%.1f"|format(lte_data['Cell UL Average thoughput BH (Mbps)']) if lte_data['Cell UL Average thoughput BH (Mbps)'] is not none else 'N/A' }} Mbps</td>
+                        <td>{{ "%.1f"|format(lte_data['Radio resource usage BH (DL) %']) if lte_data['Radio resource usage BH (DL) %'] is not none else 'N/A' }}%</td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+          {% endfor %}
+          {% endif %}
+          
+          {% else %}
+          <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            No LTE utilization data available for this MSISDN.
+          </div>
+          {% endif %}
+        </div>
+      </div>
     </div>
   </div>
   </div>
@@ -1048,9 +1208,6 @@
   <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
   <script src="{{ url_for('static', filename='js/rsrp-filters.js') }}"></script>
 
-  {% if result and result["Monthly Usage"] %}
-  <script id="usage-data" type="application/json">{{ result["Monthly Usage"] | tojson | safe }}</script>
-  {% endif %}
 
   <script>
     // Initialize charts with usage data from server
