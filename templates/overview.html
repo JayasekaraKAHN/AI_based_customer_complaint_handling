@@ -65,8 +65,8 @@
                   <i class="bi bi-download fs-2 mb-2"></i>
                   <h6 class="card-title">Total Data Usage</h6>
                   <p class="card-text fs-5">
-                    {% if result["Monthly Usage"] %}
-                      {{ "%.2f GB"|format((result["Monthly Usage"]|map(attribute='Total Volume (MB)')|sum / 1024) if result["Monthly Usage"]|map(attribute='Total Volume (MB)')|list else 0) }}
+                    {% if result["Monthly Usage"] and result["Monthly Usage"]["Total"] %}
+                      {{ "%.2f GB"|format((result["Monthly Usage"]["Total"]|sum / 1024) if result["Monthly Usage"]["Total"] else 0) }}
                     {% else %}
                       0 GB
                     {% endif %}
@@ -80,8 +80,9 @@
                   <i class="bi bi-telephone fs-2 mb-2"></i>
                   <h6 class="card-title">Voice Usage</h6>
                   <p class="card-text fs-5">
-                    {% if result["Monthly Usage"] %}
-                      {{ "%d min"|format(result["Monthly Usage"]|map(attribute='Voice Usage (min)')|sum if result["Monthly Usage"]|map(attribute='Voice Usage (min)')|list else 0) }}
+                    {% if result["Monthly Usage"] and result["Monthly Usage"]["incoming_voice"] and result["Monthly Usage"]["outgoing_voice"] %}
+                      {% set total_voice = result["Monthly Usage"]["incoming_voice"]|sum + result["Monthly Usage"]["outgoing_voice"]|sum %}
+                      {{ "%d min"|format(total_voice|int) }}
                     {% else %}
                       0 min
                     {% endif %}
@@ -95,8 +96,9 @@
                   <i class="bi bi-chat-dots fs-2 mb-2"></i>
                   <h6 class="card-title">SMS Usage</h6>
                   <p class="card-text fs-5">
-                    {% if result["Monthly Usage"] %}
-                      {{ "%d messages"|format(result["Monthly Usage"]|map(attribute='SMS Usage')|sum if result["Monthly Usage"]|map(attribute='SMS Usage')|list else 0) }}
+                    {% if result["Monthly Usage"] and result["Monthly Usage"]["incoming_sms"] and result["Monthly Usage"]["outgoing_sms"] %}
+                      {% set total_sms = result["Monthly Usage"]["incoming_sms"]|sum + result["Monthly Usage"]["outgoing_sms"]|sum %}
+                      {{ "%d messages"|format(total_sms|int) }}
                     {% else %}
                       0 messages
                     {% endif %}
@@ -110,8 +112,8 @@
                   <i class="bi bi-calendar-month fs-2 mb-2"></i>
                   <h6 class="card-title">Active Months</h6>
                   <p class="card-text fs-5">
-                    {% if result["Monthly Usage"] %}
-                      {{ result["Monthly Usage"]|length }} months
+                    {% if result["Monthly Usage"] and result["Monthly Usage"]["months"] %}
+                      {{ result["Monthly Usage"]["months"]|length }} months
                     {% else %}
                       0 months
                     {% endif %}
@@ -128,35 +130,43 @@
                 <div class="card-header">
                   <h6 class="mb-0">
                     <i class="bi bi-graph-up me-2"></i>
-                    Usage Patterns & Insights
+                    Insights
                   </h6>
                 </div>
                 <div class="card-body">
-                  {% if result["Monthly Usage"] and result["Monthly Usage"]|length > 1 %}
-                    {% set latest_month = result["Monthly Usage"][-1] %}
-                    {% set previous_month = result["Monthly Usage"][-2] %}
+                  {% if result["Monthly Usage"] and result["Monthly Usage"]["months"] and result["Monthly Usage"]["months"]|length > 1 %}
+                    {% set months = result["Monthly Usage"]["months"] %}
+                    {% set latest_idx = months|length - 1 %}
+                    {% set previous_idx = months|length - 2 %}
+                    {% set latest_month = months[latest_idx] %}
+                    {% set previous_month = months[previous_idx] %}
+                    {% set latest_total = result["Monthly Usage"]["Total"][latest_idx] if result["Monthly Usage"]["Total"] and latest_idx < result["Monthly Usage"]["Total"]|length else 0 %}
+                    {% set previous_total = result["Monthly Usage"]["Total"][previous_idx] if result["Monthly Usage"]["Total"] and previous_idx < result["Monthly Usage"]["Total"]|length else 0 %}
+                    {% set latest_voice = (result["Monthly Usage"]["incoming_voice"][latest_idx] if result["Monthly Usage"]["incoming_voice"] and latest_idx < result["Monthly Usage"]["incoming_voice"]|length else 0) + (result["Monthly Usage"]["outgoing_voice"][latest_idx] if result["Monthly Usage"]["outgoing_voice"] and latest_idx < result["Monthly Usage"]["outgoing_voice"]|length else 0) %}
+                    {% set previous_voice = (result["Monthly Usage"]["incoming_voice"][previous_idx] if result["Monthly Usage"]["incoming_voice"] and previous_idx < result["Monthly Usage"]["incoming_voice"]|length else 0) + (result["Monthly Usage"]["outgoing_voice"][previous_idx] if result["Monthly Usage"]["outgoing_voice"] and previous_idx < result["Monthly Usage"]["outgoing_voice"]|length else 0) %}
+                    {% set latest_sms = (result["Monthly Usage"]["incoming_sms"][latest_idx] if result["Monthly Usage"]["incoming_sms"] and latest_idx < result["Monthly Usage"]["incoming_sms"]|length else 0) + (result["Monthly Usage"]["outgoing_sms"][latest_idx] if result["Monthly Usage"]["outgoing_sms"] and latest_idx < result["Monthly Usage"]["outgoing_sms"]|length else 0) %}
                     <div class="row">
                       <div class="col-md-6">
                         <strong>Latest Month Activity:</strong>
                         <ul class="list-unstyled mt-2">
-                          <li><i class="bi bi-calendar3 me-2 text-primary"></i>{{ latest_month['Month'] }}</li>
-                          <li><i class="bi bi-hdd me-2 text-success"></i>Data: {{ "%.2f MB"|format(latest_month['Total Volume (MB)'] or 0) }}</li>
-                          <li><i class="bi bi-telephone me-2 text-info"></i>Voice: {{ latest_month['Voice Usage (min)'] or 0 }} min</li>
-                          <li><i class="bi bi-chat me-2 text-warning"></i>SMS: {{ latest_month['SMS Usage'] or 0 }} messages</li>
+                          <li><i class="bi bi-calendar3 me-2 text-primary"></i>{{ latest_month }}</li>
+                          <li><i class="bi bi-hdd me-2 text-success"></i>Data: {{ "%.2f MB"|format(latest_total) }}</li>
+                          <li><i class="bi bi-telephone me-2 text-info"></i>Voice: {{ latest_voice|int }} min</li>
+                          <li><i class="bi bi-chat me-2 text-warning"></i>SMS: {{ latest_sms|int }} messages</li>
                         </ul>
                       </div>
                       <div class="col-md-6">
                         <strong>Usage Trend:</strong>
                         <ul class="list-unstyled mt-2">
-                          {% set data_change = ((latest_month['Total Volume (MB)'] or 0) - (previous_month['Total Volume (MB)'] or 0)) %}
-                          {% set voice_change = ((latest_month['Voice Usage (min)'] or 0) - (previous_month['Voice Usage (min)'] or 0)) %}
+                          {% set data_change = latest_total - previous_total %}
+                          {% set voice_change = latest_voice - previous_voice %}
                           <li>
                             <i class="bi bi-{% if data_change >= 0 %}arrow-up text-success{% else %}arrow-down text-danger{% endif %} me-2"></i>
                             Data: {% if data_change >= 0 %}+{% endif %}{{ "%.1f MB"|format(data_change) }}
                           </li>
                           <li>
                             <i class="bi bi-{% if voice_change >= 0 %}arrow-up text-success{% else %}arrow-down text-danger{% endif %} me-2"></i>
-                            Voice: {% if voice_change >= 0 %}+{% endif %}{{ voice_change }} min
+                            Voice: {% if voice_change >= 0 %}+{% endif %}{{ voice_change|int }} min
                           </li>
                         </ul>
                       </div>
