@@ -44,7 +44,7 @@ import math
 import sys
 import folium
 import calendar
-from transformers import pipeline
+import time
 import numpy as np
 
 def calculate_haversine_distance(lat1, lon1, lat2, lon2):
@@ -111,12 +111,31 @@ USERTD = load_usage_data_with_month()
 ref_df = pd.read_csv(REFERENCE_FILE)
 tac_df = pd.read_csv(TAC_FILE, low_memory=False)
 
-# Load BART summarization pipeline (load once at startup)
-try:
-    summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
-except Exception as e:
-    summarizer = None
-    print(f"[AI Summary] Error loading BART model: {e}")
+# Load BART summarization pipeline (lazy loading for performance)
+summarizer = None
+
+#Lazy load BART summarization pipeline only when needed
+def get_summarizer():
+    global summarizer
+    if summarizer is None:
+        print("[LOADING] Loading AI summarization model (this may take 30-60 seconds)...")
+        try:
+            # Import transformers only when needed to speed up initial loading
+            from transformers import pipeline
+            import torch
+            
+            # Check if GPU is available for faster inference
+            device = 0 if torch.cuda.is_available() else -1
+            summarizer = pipeline(
+                "summarization", 
+                model="facebook/bart-large-cnn",
+                device=device
+            )
+            print(f"[LOADED] AI model loaded successfully on {'GPU' if device == 0 else 'CPU'}")
+        except Exception as e:
+            summarizer = False  # Mark as failed to avoid repeated attempts
+            print(f"[AI Summary] Error loading BART model: {e}")
+    return summarizer if summarizer is not False else None
 
 usage_df = load_usage_data_with_month()
 
@@ -131,6 +150,122 @@ SIM_TYPE_MAPPING = {
 
 
 latest_result = {}
+result_cache_timeout = 300  # Cache results for 5 minutes
+ai_summary_cache = {}  # Separate cache for AI summaries
+map_cache = {}  # Separate cache for maps
+analytics_cache = {}  # Cache for analytics data (RSRP, LTE, etc.)
+filter_cache = {}  # Cache for filtered results
+
+def is_cache_valid(msisdn):
+    """Check if cached result is still valid"""
+    if not latest_result or latest_result.get('MSISDN') != msisdn:
+        return False
+    
+    cache_time = latest_result.get('_cache_time', 0)
+    return (time.time() - cache_time) < result_cache_timeout
+
+def cache_result(result, msisdn):
+    """Cache result with timestamp"""
+    global latest_result
+    latest_result = result.copy()
+    latest_result['MSISDN'] = msisdn
+    latest_result['_cache_time'] = time.time()
+
+def is_ai_cache_valid(msisdn):
+    """Check if AI summary cache is valid"""
+    if msisdn not in ai_summary_cache:
+        return False
+    cache_time = ai_summary_cache[msisdn].get('_cache_time', 0)
+    return (time.time() - cache_time) < result_cache_timeout
+
+def cache_ai_summary(msisdn, summary):
+    """Cache AI summary separately"""
+    ai_summary_cache[msisdn] = {
+        'summary': summary,
+        '_cache_time': time.time()
+    }
+
+def is_map_cache_valid(msisdn):
+    """Check if map cache is valid"""
+    if msisdn not in map_cache:
+        return False
+    cache_time = map_cache[msisdn].get('_cache_time', 0)
+    map_file = map_cache[msisdn].get('map_file')
+    # Check if cached and file still exists
+    return (time.time() - cache_time) < result_cache_timeout and os.path.exists(map_file)
+
+def cache_map(msisdn, map_file):
+    """Cache map file path"""
+    map_cache[msisdn] = {
+        'map_file': map_file,
+        '_cache_time': time.time()
+    }
+
+def get_cache_key(msisdn, data_type, cell_code=None):
+    """Generate cache key for analytics data"""
+    if cell_code:
+        return f"{msisdn}_{data_type}_{cell_code}"
+    return f"{msisdn}_{data_type}"
+
+def is_analytics_cache_valid(cache_key):
+    """Check if analytics cache is valid"""
+    if cache_key not in analytics_cache:
+        return False
+    cache_time = analytics_cache[cache_key].get('_cache_time', 0)
+    return (time.time() - cache_time) < result_cache_timeout
+
+def cache_analytics_data(cache_key, data):
+    """Cache analytics data"""
+    analytics_cache[cache_key] = {
+        'data': data,
+        '_cache_time': time.time()
+    }
+
+def get_cached_analytics_data(cache_key):
+    """Retrieve cached analytics data"""
+    if is_analytics_cache_valid(cache_key):
+        return analytics_cache[cache_key]['data']
+    return None
+
+def cleanup_expired_caches():
+    """Clean up expired cache entries to prevent memory bloat"""
+    current_time = time.time()
+    
+    # Clean up main result cache
+    if latest_result.get('_cache_time', 0) and (current_time - latest_result['_cache_time']) > result_cache_timeout:
+        latest_result.clear()
+    
+    # Clean up AI summary cache
+    expired_keys = []
+    for msisdn, cache_data in ai_summary_cache.items():
+        if (current_time - cache_data.get('_cache_time', 0)) > result_cache_timeout:
+            expired_keys.append(msisdn)
+    for key in expired_keys:
+        del ai_summary_cache[key]
+    
+    # Clean up map cache
+    expired_keys = []
+    for msisdn, cache_data in map_cache.items():
+        if (current_time - cache_data.get('_cache_time', 0)) > result_cache_timeout:
+            expired_keys.append(msisdn)
+    for key in expired_keys:
+        # Also delete the actual map file
+        if 'map_file' in map_cache[key] and os.path.exists(map_cache[key]['map_file']):
+            try:
+                os.remove(map_cache[key]['map_file'])
+            except:
+                pass
+        del map_cache[key]
+    
+    # Clean up analytics cache
+    expired_keys = []
+    for cache_key, cache_data in analytics_cache.items():
+        if (current_time - cache_data.get('_cache_time', 0)) > result_cache_timeout:
+            expired_keys.append(cache_key)
+    for key in expired_keys:
+        del analytics_cache[key]
+    
+    print(f"[CACHE] Cleaned up {len(expired_keys)} expired cache entries")
 
 # Create Dash app for call drop rate graph
 call_drop_rate_file = os.path.join(os.path.dirname(__file__), '..', 'data_files', 'Call_Drop_Rate_3G.xls')
@@ -156,7 +291,7 @@ def index():
         if latest_result and latest_result.get('MSISDN') == msisdn:
             result = latest_result
             # Generate AI summary
-            ai_summary = generate_overall_msisdn_summary(result, summarizer)
+            ai_summary = generate_overall_msisdn_summary(result, get_summarizer())
             
             # Create map
             try:
@@ -205,6 +340,31 @@ def logout():
 
 @app.route('/map/<msisdn>')
 def show_map(msisdn):  
+    # Check if we have a cached map first
+    if is_map_cache_valid(msisdn):
+        print(f"[MAP] Using cached map for {msisdn}")
+        # Read the cached data if available
+        if is_cache_valid(msisdn):
+            result = latest_result
+        else:
+            # Need to load basic data for error handling
+            result = get_msisdn_data(
+                msisdn,
+                INPUT_FILE,
+                SIM_TYPE_MAPPING,
+                ref_df,
+                tac_df,
+                usage_df,
+                USAGE_FILES,
+                VLRD,
+                lambda site_id: fetch_rsrp_data_by_site_id(site_id, zte_rsrp_df, huawei_rsrp_df),
+                lambda cell_code: fetch_rsrp_data_directly(cell_code, zte_rsrp_df, huawei_rsrp_df, ref_df),
+                lambda site_id: get_lte_utilization_by_site_id(site_id, lte_utilization_df),
+                lambda cell_code: get_lte_utilization_by_cell_code(cell_code, lte_utilization_df)
+            )
+        return render_template('map_display.html', msisdn=msisdn, result=result)
+    
+    # Generate new map if not cached
     result = get_msisdn_data(
         msisdn,
         INPUT_FILE,
@@ -240,16 +400,25 @@ def show_map(msisdn):
     if not os.path.exists(static_path):
         os.makedirs(static_path)
     
-    map_path = os.path.join(static_path, 'temp_map.html')
+    # Use unique filename for each MSISDN
+    map_path = os.path.join(static_path, f'temp_map_{msisdn}.html')
     map_obj.save(map_path)
+    
+    # Cache the map
+    cache_map(msisdn, map_path)
     
     return render_template('map_display.html', msisdn=msisdn, result=result)
 
 #search msisdn
 @app.route('/search', methods=['POST'])
 def search():
+    search_start = time.time()
     global latest_result
     msisdn = request.form.get("msisdn")
+    
+    print(f"[SEARCH] Starting search for MSISDN: {msisdn}")
+    
+    # Fast data loading - only essential data
     result = get_msisdn_data(
         msisdn,
         INPUT_FILE,
@@ -267,35 +436,30 @@ def search():
     if "error" in result:
         return render_template('index.html', error=result["error"])
     
-    # Store the result and MSISDN in latest_result for other functions to access
-    latest_result = result.copy()
-    latest_result['MSISDN'] = msisdn
-
-    # Generate AI summary for Overview tab
-    ai_summary = generate_overall_msisdn_summary(result, summarizer)
-
-    try:
-        map_obj = create_location_map(result)
-        static_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'static'))
-        if not os.path.exists(static_path):
-            os.makedirs(static_path)
-        map_path = os.path.join(static_path, 'temp_map.html')
-        map_obj.save(map_path)
-        has_map = True
-    except Exception as e:
-        print(f"Error creating map: {e}")
-        has_map = False
-
-    # Redirect to overview page instead of showing index with results
+    # Store the result and MSISDN with caching
+    cache_result(result, msisdn)
+    
+    search_time = time.time() - search_start
+    print(f"[SEARCH] Search completed in {search_time:.2f} seconds")
+    
+    # Redirect to overview page for fast loading
     return redirect(url_for('overview', msisdn=msisdn))
 
-# New overview route
+# New overview route with optimized loading
 @app.route('/overview/<msisdn>')
 def overview(msisdn):
+    start_time = time.time()
     global latest_result
     
-    # Check if we have recent data for this MSISDN
-    if not latest_result or latest_result.get('MSISDN') != msisdn:
+    # Periodic cache cleanup (every 10th request approximately)
+    if int(time.time()) % 10 == 0:
+        cleanup_expired_caches()
+    
+    print(f"[OVERVIEW] Processing overview for MSISDN: {msisdn}")
+    
+    if not is_cache_valid(msisdn):
+        data_start = time.time()
+        print(f"[CACHE MISS] Loading data for MSISDN: {msisdn}")
         # If no recent data, fetch it
         result = get_msisdn_data(
             msisdn,
@@ -315,31 +479,62 @@ def overview(msisdn):
             flash(f"Error loading data for MSISDN {msisdn}: {result['error']}", "error")
             return redirect(url_for('index'))
         
-        latest_result = result.copy()
-        latest_result['MSISDN'] = msisdn
+        cache_result(result, msisdn)
+        result = latest_result
+        print(f"[DATA] Data loading took {time.time() - data_start:.2f} seconds")
     else:
+        print(f"[CACHE HIT] Using cached data for MSISDN: {msisdn}")
         result = latest_result
 
-    # Generate AI summary
-    ai_summary = generate_overall_msisdn_summary(result, summarizer)
-
-    # Create map
-    try:
-        map_obj = create_location_map(result)
-        static_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'static'))
-        if not os.path.exists(static_path):
-            os.makedirs(static_path)
-        map_path = os.path.join(static_path, 'temp_map.html')
-        map_obj.save(map_path)
+    ai_summary = None
+    if is_ai_cache_valid(msisdn):
+        print("[AI] Using cached AI summary")
+        ai_summary = ai_summary_cache[msisdn]['summary']
+    
+    has_map = False
+    if is_map_cache_valid(msisdn):
+        print("[MAP] Using cached map")
         has_map = True
-    except Exception as e:
-        print(f"Error creating map: {e}")
-        has_map = False
+    
+    if ai_summary is not None and has_map:
+        total_time = time.time() - start_time
+        print(f"[OVERVIEW] Fast cached overview served in {total_time:.2f} seconds")
+        return render_template('overview.html', result=result, has_map=has_map, ai_summary=ai_summary)
+    
+    if ai_summary is None:
+        ai_start = time.time()
+        print("[AI] Generating AI summary...")
+        try:
+            ai_summary = generate_overall_msisdn_summary(result, get_summarizer())
+            cache_ai_summary(msisdn, ai_summary)
+            print(f"[AI] AI summary generated in {time.time() - ai_start:.2f} seconds")
+        except Exception as e:
+            print(f"[AI] Error generating AI summary: {e}")
+            ai_summary = "AI summary temporarily unavailable"
+    
+    if not has_map:
+        map_start = time.time()
+        print("[MAP] Creating location map...")
+        try:
+            map_obj = create_location_map(result)
+            static_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'static'))
+            if not os.path.exists(static_path):
+                os.makedirs(static_path)
+            map_path = os.path.join(static_path, f'temp_map_{msisdn}.html')
+            map_obj.save(map_path)
+            cache_map(msisdn, map_path)
+            has_map = True
+            print(f"[MAP] Map created in {time.time() - map_start:.2f} seconds")
+        except Exception as e:
+            print(f"[MAP] Error creating map: {e}")
+            has_map = False
+
+    total_time = time.time() - start_time
+    print(f"[OVERVIEW] Total overview generation time: {total_time:.2f} seconds")
 
     return render_template('overview.html', result=result, has_map=has_map, ai_summary=ai_summary)
 
 #user count by site
-
 @app.route('/user_count')
 def user_count():
     month = request.args.get('month')
@@ -359,7 +554,6 @@ def user_count():
 
 
 #District Search
-
 @app.route('/user_count/search', methods=['POST'])
 def user_count_search():
     month = request.form.get('month')
@@ -453,13 +647,49 @@ def get_rsrp_by_site_id(site_id):
 
 @app.route('/filter_rsrp_data', methods=['POST'])
 def filter_rsrp_data():
+    start_time = time.time()
     msisdn = request.form.get('msisdn')
     if not msisdn:
         return jsonify({'error': 'MSISDN required'}), 400
     
-    result = get_msisdn_data(msisdn)
-    if "error" in result:
-        return jsonify({'error': result["error"]}), 404
+    print(f"[RSRP FILTER] Starting RSRP filter for MSISDN: {msisdn}")
+    
+    # Check analytics cache first
+    cache_key = get_cache_key(msisdn, 'rsrp')
+    cached_data = get_cached_analytics_data(cache_key)
+    
+    if cached_data:
+        print(f"[RSRP FILTER] Using cached RSRP data for {msisdn}")
+        return jsonify({
+            'data': cached_data,
+            'total_count': len(cached_data),
+            'filtered_count': len(cached_data),
+            'cached': True
+        })
+    
+    # Use cached MSISDN result if available to avoid reloading
+    if not is_cache_valid(msisdn):
+        print(f"[RSRP FILTER] Loading MSISDN data for {msisdn}")
+        result = get_msisdn_data(
+            msisdn,
+            INPUT_FILE,
+            SIM_TYPE_MAPPING,
+            ref_df,
+            tac_df,
+            usage_df,
+            USAGE_FILES,
+            VLRD,
+            lambda site_id: fetch_rsrp_data_by_site_id(site_id, zte_rsrp_df, huawei_rsrp_df),
+            lambda cell_code: fetch_rsrp_data_directly(cell_code, zte_rsrp_df, huawei_rsrp_df, ref_df),
+            lambda site_id: get_lte_utilization_by_site_id(site_id, lte_utilization_df),
+            lambda cell_code: get_lte_utilization_by_cell_code(cell_code, lte_utilization_df)
+        )
+        if "error" in result:
+            return jsonify({'error': result["error"]}), 404
+        cache_result(result, msisdn)
+    else:
+        print(f"[RSRP FILTER] Using cached MSISDN data for {msisdn}")
+        result = latest_result
     
     cellcode = result.get('Cellcode')
     if not cellcode or cellcode == "Not Found":
@@ -468,6 +698,9 @@ def filter_rsrp_data():
     rsrp_data = fetch_rsrp_data_directly(cellcode, zte_rsrp_df, huawei_rsrp_df, ref_df)
     if not rsrp_data:
         return jsonify({'error': 'No RSRP data found'}), 404
+    
+    # Cache the raw RSRP data
+    cache_analytics_data(cache_key, rsrp_data)
     
     filters = {
         'Cell_Name': request.form.get('cell_name_filter', ''),
@@ -495,6 +728,9 @@ def filter_rsrp_data():
     
     filtered_data = filter_and_sort_rsrp_data(rsrp_data, filters, sort_by, sort_order)
     
+    total_time = time.time() - start_time
+    print(f"[RSRP FILTER] RSRP filter completed in {total_time:.2f} seconds")
+    
     return jsonify({
         'data': filtered_data,
         'total_count': len(rsrp_data),
@@ -503,6 +739,7 @@ def filter_rsrp_data():
 
 @app.route('/filter_common_location_rsrp_data', methods=['POST'])
 def filter_common_location_rsrp_data():
+    start_time = time.time()
     msisdn = request.form.get('msisdn')
     cell_code = request.form.get('cell_code') 
     
@@ -512,12 +749,32 @@ def filter_common_location_rsrp_data():
     if not cell_code:
         return jsonify({'error': 'Cell code required'}), 400
 
+    print(f"[COMMON RSRP] Starting common location RSRP filter for {msisdn}, cell: {cell_code}")
+    
+    # Check cache for this specific cell code
+    cache_key = get_cache_key(msisdn, 'common_rsrp', cell_code)
+    cached_data = get_cached_analytics_data(cache_key)
+    
+    if cached_data:
+        print(f"[COMMON RSRP] Using cached data for {msisdn}, cell: {cell_code}")
+        return jsonify({
+            'data': cached_data,
+            'total_count': len(cached_data),
+            'filtered_count': len(cached_data),
+            'cell_code': cell_code,
+            'site_id': str(cell_code)[:6],
+            'cached': True
+        })
+
     site_id = str(cell_code)[:6]
     
     site_rsrp_data = fetch_rsrp_data_by_site_id(site_id, zte_rsrp_df, huawei_rsrp_df)
     
     if not site_rsrp_data:
         return jsonify({'error': f'No RSRP data found for Cell Code {cell_code}'}), 404
+
+    # Cache the data before filtering
+    cache_analytics_data(cache_key, site_rsrp_data)
 
     filters = {
         'Cell_Name': request.form.get('cell_name_filter', ''),
@@ -545,6 +802,9 @@ def filter_common_location_rsrp_data():
     
     filtered_data = filter_and_sort_rsrp_data(site_rsrp_data, filters, sort_by, sort_order)
     
+    total_time = time.time() - start_time
+    print(f"[COMMON RSRP] Common location RSRP filter completed in {total_time:.2f} seconds")
+    
     return jsonify({
         'data': filtered_data,
         'total_count': len(site_rsrp_data),
@@ -555,15 +815,81 @@ def filter_common_location_rsrp_data():
 
 @app.route('/filter_common_rsrp_data', methods=['POST'])
 def filter_common_rsrp_data():
-    """Filter RSRP data for all common locations in the unified table"""
+    """Filter RSRP data for all common locations in the unified table with enhanced caching"""
+    start_time = time.time()
     msisdn = request.form.get('msisdn')
     if not msisdn:
         return jsonify({'error': 'MSISDN required'}), 400
     
-    # Get the MSISDN data to find common locations
-    result = get_msisdn_data(msisdn)
-    if "error" in result:
-        return jsonify({'error': result["error"]}), 404
+    print(f"[COMMON RSRP ALL] Starting unified RSRP filter for {msisdn}")
+    
+    # Check cache for unified common RSRP data
+    cache_key = get_cache_key(msisdn, 'all_common_rsrp')
+    cached_data = get_cached_analytics_data(cache_key)
+    
+    if cached_data:
+        print(f"[COMMON RSRP ALL] Using cached unified data for {msisdn}")
+        # Apply filters to cached data
+        filters = {
+            'Cell_Name': request.form.get('cell_name_filter', ''),
+            'Site_ID': request.form.get('site_id_filter', ''),
+            'Site_Name': request.form.get('site_name_filter', ''),
+            'RSRP Range 1 (>-105dBm) %': request.form.get('rsrp_range1_direct', ''),
+            'RSRP Range 2 (-105~-110dBm) %': request.form.get('rsrp_range2_direct', ''),
+            'RSRP Range 3 (-110~-115dBm) %': request.form.get('rsrp_range3_direct', ''),
+            'RSRP < -115dBm %': request.form.get('rsrp_range4_direct', ''),
+            'RSRP Range 1 (>-105dBm) %_min': request.form.get('rsrp_range1_min', ''),
+            'RSRP Range 1 (>-105dBm) %_max': request.form.get('rsrp_range1_max', ''),
+            'RSRP Range 2 (-105~-110dBm) %_min': request.form.get('rsrp_range2_min', ''),
+            'RSRP Range 2 (-105~-110dBm) %_max': request.form.get('rsrp_range2_max', ''),
+            'RSRP Range 3 (-110~-115dBm) %_min': request.form.get('rsrp_range3_min', ''),
+            'RSRP Range 3 (-110~-115dBm) %_max': request.form.get('rsrp_range3_max', ''),
+            'RSRP < -115dBm %_min': request.form.get('rsrp_range4_min', ''),
+            'RSRP < -115dBm %_max': request.form.get('rsrp_range4_max', ''),
+            'Good Signal (Range 1+2) %_min': request.form.get('good_signal_min', ''),
+            'Good Signal (Range 1+2) %_max': request.form.get('good_signal_max', ''),
+            'Poor Signal (Range 3+4) %_min': request.form.get('poor_signal_min', ''),
+            'Poor Signal (Range 3+4) %_max': request.form.get('poor_signal_max', '')
+        }
+        sort_by = request.form.get('sort_by', '')
+        sort_order = request.form.get('sort_order', 'asc')
+        
+        filtered_data = filter_and_sort_rsrp_data(cached_data, filters, sort_by, sort_order)
+        
+        total_time = time.time() - start_time
+        print(f"[COMMON RSRP ALL] Cached unified filter completed in {total_time:.2f} seconds")
+        
+        return jsonify({
+            'data': filtered_data,
+            'total_count': len(cached_data),
+            'filtered_count': len(filtered_data),
+            'cached': True
+        })
+    
+    # Use cached MSISDN data if available
+    if not is_cache_valid(msisdn):
+        print(f"[COMMON RSRP ALL] Loading MSISDN data for {msisdn}")
+        # Get the MSISDN data to find common locations
+        result = get_msisdn_data(
+            msisdn,
+            INPUT_FILE,
+            SIM_TYPE_MAPPING,
+            ref_df,
+            tac_df,
+            usage_df,
+            USAGE_FILES,
+            VLRD,
+            lambda site_id: fetch_rsrp_data_by_site_id(site_id, zte_rsrp_df, huawei_rsrp_df),
+            lambda cell_code: fetch_rsrp_data_directly(cell_code, zte_rsrp_df, huawei_rsrp_df, ref_df),
+            lambda site_id: get_lte_utilization_by_site_id(site_id, lte_utilization_df),
+            lambda cell_code: get_lte_utilization_by_cell_code(cell_code, lte_utilization_df)
+        )
+        if "error" in result:
+            return jsonify({'error': result["error"]}), 404
+        cache_result(result, msisdn)
+    else:
+        print(f"[COMMON RSRP ALL] Using cached MSISDN data for {msisdn}")
+        result = latest_result
     
     common_locations = result.get('Common Cell Locations', [])
     if not common_locations:
@@ -579,6 +905,9 @@ def filter_common_rsrp_data():
     
     if not all_common_rsrp_data:
         return jsonify({'error': 'No RSRP data found for common locations'}), 404
+    
+    # Cache the unified data
+    cache_analytics_data(cache_key, all_common_rsrp_data)
     
     # Apply filters
     filters = {
@@ -609,6 +938,9 @@ def filter_common_rsrp_data():
     # Filter and sort the data using the same logic as recent location
     filtered_data = filter_and_sort_rsrp_data(all_common_rsrp_data, filters, sort_by, sort_order)
     
+    total_time = time.time() - start_time
+    print(f"[COMMON RSRP ALL] Unified filter completed in {total_time:.2f} seconds")
+    
     return jsonify({
         'data': filtered_data,
         'total_count': len(all_common_rsrp_data),
@@ -620,11 +952,46 @@ def ai_overall_summary():
     msisdn = request.form.get('msisdn')
     if not msisdn:
         return jsonify({'error': 'MSISDN required'}), 400
-    user_data = get_msisdn_data(msisdn)
-    if 'error' in user_data:
-        return jsonify({'error': user_data['error']}), 404
-    summary = generate_overall_msisdn_summary(user_data, summarizer)
-    return jsonify({'msisdn': msisdn, 'summary': summary})
+    
+    # Check for cached AI summary first
+    if is_ai_cache_valid(msisdn):
+        return jsonify({
+            'msisdn': msisdn, 
+            'summary': ai_summary_cache[msisdn]['summary'],
+            'cached': True
+        })
+    
+    # Get user data (should be cached from overview call)
+    if not is_cache_valid(msisdn):
+        # If not cached, need to load data
+        user_data = get_msisdn_data(
+            msisdn,
+            INPUT_FILE,
+            SIM_TYPE_MAPPING,
+            ref_df,
+            tac_df,
+            usage_df,
+            USAGE_FILES,
+            VLRD,
+            lambda site_id: fetch_rsrp_data_by_site_id(site_id, zte_rsrp_df, huawei_rsrp_df),
+            lambda cell_code: fetch_rsrp_data_directly(cell_code, zte_rsrp_df, huawei_rsrp_df, ref_df),
+            lambda site_id: get_lte_utilization_by_site_id(site_id, lte_utilization_df),
+            lambda cell_code: get_lte_utilization_by_cell_code(cell_code, lte_utilization_df)
+        )
+        if 'error' in user_data:
+            return jsonify({'error': user_data['error']}), 404
+        cache_result(user_data, msisdn)
+    else:
+        user_data = latest_result
+    
+    # Generate AI summary
+    try:
+        summary = generate_overall_msisdn_summary(user_data, get_summarizer())
+        cache_ai_summary(msisdn, summary)
+        return jsonify({'msisdn': msisdn, 'summary': summary, 'cached': False})
+    except Exception as e:
+        print(f"[AI] Error generating summary: {e}")
+        return jsonify({'error': 'AI summary generation failed', 'details': str(e)}), 500
 
 # --- 3G Call Drop Rate Data API for JS Plotly Chart ---
 @app.route('/call-drop-rate-3g-data')
@@ -714,7 +1081,7 @@ def hlr_vlr_subbase_data():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     
-# Route for HLR/VLR Subbase JS-based graph
+# Route for HLR/VLR Subbase
 @app.route('/hlr-vlr-subs-graph')
 def hlr_vlr_subs_graph():
     return render_template('hlr_vlr_subs_graph.html')
@@ -790,15 +1157,51 @@ def lte_utilization_by_cell(cell_code):
 
 @app.route('/filter_lte_utilization_data', methods=['POST'])
 def filter_lte_utilization_data():
-    """Filter LTE utilization data based on MSISDN"""
+    """Filter LTE utilization data based on MSISDN with enhanced caching"""
+    start_time = time.time()
     msisdn = request.form.get('msisdn')
     if not msisdn:
         return jsonify({'error': 'MSISDN required'}), 400
     
-    # Get MSISDN data to find associated site/cell information
-    result = get_msisdn_data(msisdn)
-    if "error" in result:
-        return jsonify({'error': result["error"]}), 404
+    print(f"[LTE FILTER] Starting LTE filter for MSISDN: {msisdn}")
+    
+    # Check analytics cache first
+    cache_key = get_cache_key(msisdn, 'lte')
+    cached_data = get_cached_analytics_data(cache_key)
+    
+    if cached_data:
+        print(f"[LTE FILTER] Using cached LTE data for {msisdn}")
+        return jsonify({
+            'msisdn': msisdn,
+            'data': cached_data,
+            'total_count': len(cached_data),
+            'cached': True
+        })
+    
+    # Use cached MSISDN result if available to avoid reloading
+    if not is_cache_valid(msisdn):
+        print(f"[LTE FILTER] Loading MSISDN data for {msisdn}")
+        # Get MSISDN data to find associated site/cell information
+        result = get_msisdn_data(
+            msisdn,
+            INPUT_FILE,
+            SIM_TYPE_MAPPING,
+            ref_df,
+            tac_df,
+            usage_df,
+            USAGE_FILES,
+            VLRD,
+            lambda site_id: fetch_rsrp_data_by_site_id(site_id, zte_rsrp_df, huawei_rsrp_df),
+            lambda cell_code: fetch_rsrp_data_directly(cell_code, zte_rsrp_df, huawei_rsrp_df, ref_df),
+            lambda site_id: get_lte_utilization_by_site_id(site_id, lte_utilization_df),
+            lambda cell_code: get_lte_utilization_by_cell_code(cell_code, lte_utilization_df)
+        )
+        if "error" in result:
+            return jsonify({'error': result["error"]}), 404
+        cache_result(result, msisdn)
+    else:
+        print(f"[LTE FILTER] Using cached MSISDN data for {msisdn}")
+        result = latest_result
     
     cellcode = result.get('Cellcode')
     site_id = None
@@ -819,6 +1222,12 @@ def filter_lte_utilization_data():
     if not lte_data:
         return jsonify({'error': 'No LTE utilization data found for this MSISDN'}), 404
     
+    # Cache the LTE data
+    cache_analytics_data(cache_key, lte_data)
+    
+    total_time = time.time() - start_time
+    print(f"[LTE FILTER] LTE filter completed in {total_time:.2f} seconds")
+    
     return jsonify({
         'msisdn': msisdn,
         'cellcode': cellcode,
@@ -829,7 +1238,8 @@ def filter_lte_utilization_data():
 
 @app.route('/filter_common_location_lte_data', methods=['POST'])
 def filter_common_location_lte_data():
-    """Filter LTE utilization data for a specific common location cell code"""
+    """Filter LTE utilization data for a specific common location cell code with caching"""
+    start_time = time.time()
     msisdn = request.form.get('msisdn')
     cell_code = request.form.get('cell_code')
     
@@ -838,6 +1248,22 @@ def filter_common_location_lte_data():
     
     if not cell_code:
         return jsonify({'error': 'Cell code required'}), 400
+
+    print(f"[COMMON LTE] Starting common location LTE filter for {msisdn}, cell: {cell_code}")
+    
+    # Check cache for this specific cell code
+    cache_key = get_cache_key(msisdn, 'common_lte', cell_code)
+    cached_data = get_cached_analytics_data(cache_key)
+    
+    if cached_data:
+        print(f"[COMMON LTE] Using cached data for {msisdn}, cell: {cell_code}")
+        return jsonify({
+            'data': cached_data,
+            'total_count': len(cached_data),
+            'cell_code': cell_code,
+            'site_id': str(cell_code)[:6],
+            'cached': True
+        })
 
     # Extract site ID from cell code
     site_id = str(cell_code)[:6]
@@ -851,10 +1277,17 @@ def filter_common_location_lte_data():
         if not lte_data:
             lte_data = get_lte_utilization_by_site_id(site_id, lte_utilization_df)
     except Exception as e:
+        print(f"[COMMON LTE] Error fetching LTE data: {e}")
         pass
     
     if not lte_data:
         return jsonify({'error': f'No LTE utilization data found for Cell Code {cell_code}'}), 404
+
+    # Cache the data
+    cache_analytics_data(cache_key, lte_data)
+    
+    total_time = time.time() - start_time
+    print(f"[COMMON LTE] Common location LTE filter completed in {total_time:.2f} seconds")
 
     return jsonify({
         'data': lte_data,

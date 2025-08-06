@@ -2,7 +2,6 @@ import pandas as pd
 import os
 
 def load_lte_utilization_data():
-    """Load LTE Utilization data from Excel file"""
     try:
         data_files_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data_files'))
         file_path = os.path.join(data_files_dir, 'LTE Utilization Report - June v2.xlsx')
@@ -21,7 +20,6 @@ def load_lte_utilization_data():
         return None
 
 def get_lte_utilization_by_site_id(site_id, lte_df=None):
-    """Get LTE utilization data for a specific Site ID"""
     if lte_df is None:
         lte_df = load_lte_utilization_data()
     
@@ -64,7 +62,6 @@ def get_lte_utilization_by_site_id(site_id, lte_df=None):
     return records
 
 def get_lte_utilization_by_cell_code(cell_code, lte_df=None):
-    """Get LTE utilization data for a specific Cell Code (Cell ID)"""
     if lte_df is None:
         lte_df = load_lte_utilization_data()
     
@@ -107,7 +104,6 @@ def get_lte_utilization_by_cell_code(cell_code, lte_df=None):
     return records
 
 def get_all_lte_utilization_data(filters=None, sort_by=None, sort_order='asc'):
-    """Get all LTE utilization data with optional filtering and sorting"""
     lte_df = load_lte_utilization_data()
     
     if lte_df is None:
@@ -163,7 +159,6 @@ def get_all_lte_utilization_data(filters=None, sort_by=None, sort_order='asc'):
     return records
 
 def get_lte_utilization_summary():
-    """Get summary statistics for LTE utilization data"""
     lte_df = load_lte_utilization_data()
     
     if lte_df is None:
