@@ -321,6 +321,124 @@ def generate_overall_msisdn_summary(user_metrics, summarizer=None):
     )
 
     try:
+        # Handle different types of summarizers
+        if summarizer == "basic":
+            # Basic text summarization without AI model
+            basic_summary = generate_basic_summary(user_metrics, patterns, suggestions, recs)
+            return details_section + "\n" + basic_summary
+        elif hasattr(summarizer, '__call__'):
+            # AI model summarization
+            result = summarizer(prompt, max_length=180, min_length=40, do_sample=False)
+            combined_summary = (
+                details_section + "\n"
+                + result[0]['summary_text']
+                + ("\n".join(
+                    f"- {p}" for p in patterns
+                    if p not in [
+                        "Significant spike in data usage detected in some months.",
+                        "Some months show very low data usage.",
+                        "Heavy voice call activity detected.",
+                        "Frequent SMS usage detected.",
+                        "Significant increase in voice usage detected in some months."
+                    ]
+                ) if patterns else "- None detected.")
+            )
+            return combined_summary
+        else:
+            # Fallback to basic summary
+            basic_summary = generate_basic_summary(user_metrics, patterns, suggestions, recs)
+            return details_section + "\n" + basic_summary
+            
+    except Exception as e:
+        print(f"[AI Summary] Error during summarization: {e}")
+        # Fallback to basic summary
+        basic_summary = generate_basic_summary(user_metrics, patterns, suggestions, recs)
+        return details_section + "\n" + basic_summary
+
+def generate_basic_summary(user_metrics, patterns, suggestions, recs):
+    """Generate a basic text summary without AI model"""
+    msisdn = user_metrics.get('MSISDN', 'Unknown')
+    monthly_usage = user_metrics.get('Monthly Usage', {})
+    total_usage = monthly_usage.get('Total', [])
+    
+    # Calculate average usage
+    avg_usage = sum(total_usage) / len(total_usage) if total_usage else 0
+    
+    summary_parts = []
+    summary_parts.append(f"📊 Usage Analysis for {msisdn}")
+    
+    if avg_usage > 0:
+        if avg_usage > 5000:
+            summary_parts.append("🔥 High data usage detected - Heavy user profile")
+        elif avg_usage > 1000:
+            summary_parts.append("📈 Moderate data usage - Regular user profile")
+        else:
+            summary_parts.append("📱 Light data usage - Basic user profile")
+    
+    if patterns:
+        summary_parts.append(f"📋 Key Patterns: {', '.join(patterns[:3])}")
+    
+    if suggestions:
+        summary_parts.append(f"💡 Recommendations: {', '.join(suggestions[:2])}")
+    
+    if recs:
+        summary_parts.append(f"🎯 Personalized Tips: {', '.join(recs[:2])}")
+    
+    return "\n".join(summary_parts)
+    
+    # Store formatted RSRP summaries in user_metrics for template access
+    user_metrics['formatted_recent_rsrp'] = recent_rsrp_summary
+    user_metrics['formatted_common_rsrp'] = common_rsrp_summary
+
+    # --- Detailed MSISDN Data Section ---
+    details_section = (
+        f"\n==============================\n"
+        f" MSISDN Detailed Data\n"
+        f"==============================\n"
+        f"Mobile Number      : {msisdn}\n"
+        f"IMSI              : {imsi}\n"
+        f"IMEI              : {imei}\n"
+        f"SIM Type          : {sim_type}\n"
+        f"Connection Type   : {connection_type}\n"
+        f"Device            : {brand} {model} ({marketing_name})\n"
+        f"OS                : {os_name}\n"
+        f"Year Released     : {year_released}\n"
+        f"Device Type       : {device_type}\n"
+        f"VoLTE             : {volte}\n"
+        f"Technology        : {technology}\n"
+        f"Primary HW Type   : {primary_hardware_type}\n"
+        f"TAC               : {tac}\n"
+        f"Location          : {district} district, {region} region\n"
+        f"Site Name         : {sitename}\n"
+        f"Cell Code         : {cellcode}\n"
+        f"Coordinates       : {lat}, {lon}\n"
+        f"\n------------------------------\n"
+        f" Monthly Usage Summary\n"
+        f"------------------------------\n"
+        f"Data Usage (MB) per Month:\n"
+        + ("\n".join([f"  • {m}: {t} MB" for m, t in zip(months, total_usage)]) if months and total_usage else "  • No usage data.")
+        + "\n\nVoice & SMS Activity per Month:\n"
+        + ("\n".join([f"  • {m}: {voice} mins voice, {sms} SMS" for m, voice, sms in zip(months, [(outgoing_voice[i] if i < len(outgoing_voice) else 0) + (incoming_voice[i] if i < len(incoming_voice) else 0) for i in range(len(months))], [(outgoing_sms[i] if i < len(outgoing_sms) else 0) + (incoming_sms[i] if i < len(incoming_sms) else 0) for i in range(len(months))])]) if months else "  • No voice/SMS data.")
+        + "\n==============================\n"
+    )
+
+    # --- Rule-based analysis ---
+    rule_results = rule_based_pattern_analysis(user_metrics)
+    patterns = rule_results['patterns']
+    suggestions = rule_results['suggestions']
+
+    # --- Personalized recommendations ---
+    recs = personalized_recommendations(user_metrics)
+
+    # Compose a richer prompt for the LLM, explicitly requesting pattern analysis and suggestions
+    prompt = (
+        f"\n"
+        f"Patterns detected:\n" + ("\n".join(f"- {p}" for p in patterns) if patterns else "- None detected.") + "\n"
+        f"Suggestions:\n" + ("\n".join(f"- {s}" for s in suggestions) if suggestions else "- None.") + "\n"
+        f"Personalized Recommendations:\n" + ("\n".join(f"- {r}" for r in recs) if recs else "- None.")
+    )
+
+    try:
         result = summarizer(prompt, max_length=180, min_length=40, do_sample=False)
         combined_summary = (
             details_section + "\n"

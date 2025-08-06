@@ -25,7 +25,7 @@
             <meta name="viewport" content="width=device-width,
                 initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
             <style>
-                #map_52d5be25a5bef41ce16622fb3286969d {
+                #map_edb84d684b7a6a863e22e9d42e617867 {
                     position: relative;
                     width: 100.0%;
                     height: 100.0%;
@@ -39,28 +39,16 @@
 <body>
     
     
-        <div style="position: fixed; 
-                    top: 10px; right: 10px; width: 200px; height: auto; 
-                    background-color: white; border: 2px solid #ccc; z-index: 9999; 
-                    font-size: 12px; padding: 10px; border-radius: 5px;
-                    box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-        <p style="margin: 5px 0; font-size: 10px; color: #666;">
-            <strong>District:</strong> GM<br>
-            <strong>Region:</strong> GM,KL,CB,Z
-        </p>
-        </div>
-        
-    
-            <div class="folium-map" id="map_52d5be25a5bef41ce16622fb3286969d" ></div>
+            <div class="folium-map" id="map_edb84d684b7a6a863e22e9d42e617867" ></div>
         
 </body>
 <script>
     
     
-            var map_52d5be25a5bef41ce16622fb3286969d = L.map(
-                "map_52d5be25a5bef41ce16622fb3286969d",
+            var map_edb84d684b7a6a863e22e9d42e617867 = L.map(
+                "map_edb84d684b7a6a863e22e9d42e617867",
                 {
-                    center: [7.076592, 80.121707],
+                    center: [7.912474, 80.240975],
                     crs: L.CRS.EPSG3857,
                     zoom: 12,
                     zoomControl: true,
@@ -72,44 +60,44 @@
 
         
     
-            var tile_layer_6b1e9f0e82efb0d1dfa5a464c6625e64 = L.tileLayer(
+            var tile_layer_5e4e7049b8a08c3b05c8b75da48e0d8e = L.tileLayer(
                 "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                 {"attribution": "Data by \u0026copy; \u003ca target=\"_blank\" href=\"http://openstreetmap.org\"\u003eOpenStreetMap\u003c/a\u003e, under \u003ca target=\"_blank\" href=\"http://www.openstreetmap.org/copyright\"\u003eODbL\u003c/a\u003e.", "detectRetina": false, "maxNativeZoom": 18, "maxZoom": 18, "minZoom": 0, "noWrap": false, "opacity": 1, "subdomains": "abc", "tms": false}
             );
         
     
-                tile_layer_6b1e9f0e82efb0d1dfa5a464c6625e64.addTo(map_52d5be25a5bef41ce16622fb3286969d);
+                tile_layer_5e4e7049b8a08c3b05c8b75da48e0d8e.addTo(map_edb84d684b7a6a863e22e9d42e617867);
     
-            var marker_d701101663e957716cf5679c919afcec = L.marker(
-                [7.076592, 80.121707],
+            var marker_b8bb018ded4a90d6444fac202bf4e21e = L.marker(
+                [7.912474, 80.240975],
                 {}
-            ).addTo(map_52d5be25a5bef41ce16622fb3286969d);
+            ).addTo(map_edb84d684b7a6a863e22e9d42e617867);
         
     
-            var icon_b7f420904378fcf31c1ab1cc3288816f = L.AwesomeMarkers.icon(
+            var icon_3e54b55f63551b539d1d4944d3d2fd06 = L.AwesomeMarkers.icon(
                 {"extraClasses": "fa-rotate-0", "icon": "user", "iconColor": "white", "markerColor": "red", "prefix": "fa"}
             );
-            marker_d701101663e957716cf5679c919afcec.setIcon(icon_b7f420904378fcf31c1ab1cc3288816f);
+            marker_b8bb018ded4a90d6444fac202bf4e21e.setIcon(icon_3e54b55f63551b539d1d4944d3d2fd06);
         
     
-        var popup_13e94452f8545077725ce0a34bad78dd = L.popup({"maxWidth": 320});
+        var popup_c68828ff815e5e36e638039084273d05 = L.popup({"maxWidth": 320});
 
         
             
-                var html_8992e7b28133a3f4a3bf6ef87117f2fc = $(`<div id="html_8992e7b28133a3f4a3bf6ef87117f2fc" style="width: 100.0%; height: 100.0%;">         <div style="width: 280px; font-family: Arial, sans-serif;">             <h5 style="color: #2196F3; background: #E3F2FD; padding: 8px; margin: -5px -5px 10px -5px; border-radius: 4px;">                 📱 User Location             </h5>             <table style="width: 100%; font-size: 12px;">                 <tr><td><strong>MSISDN:</strong></td><td>94706278414</td></tr>                 <tr><td><strong>Site:</strong></td><td>Walgammulla</td></tr>                 <tr><td><strong>District:</strong></td><td>GM</td></tr>                 <tr><td><strong>Region:</strong></td><td>GM,KL,CB,Z</td></tr>                 <tr><td><strong>Cell Code:</strong></td><td>GMWGM1A</td></tr>                 <tr><td><strong>LAC:</strong></td><td>55000</td></tr>                 <tr><td><strong>SAC:</strong></td><td>30861</td></tr>                 <tr><td><strong>Coordinates:</strong></td><td>7.076592, 80.121707</td></tr>             </table>         </div>         </div>`)[0];
-                popup_13e94452f8545077725ce0a34bad78dd.setContent(html_8992e7b28133a3f4a3bf6ef87117f2fc);
+                var html_226e3ef61e7ded4ec5fda0caa6e3d6b7 = $(`<div id="html_226e3ef61e7ded4ec5fda0caa6e3d6b7" style="width: 100.0%; height: 100.0%;">         <div style='width: 280px; font-family: Arial, sans-serif;'>             <h5 style='color: #2196F3; background: #E3F2FD; padding: 8px; margin: -5px -5px 10px -5px; border-radius: 4px;'>                 📱 User Location             </h5>             <table style='width: 100%; font-size: 12px;'>                 <tr><td><strong>MSISDN:</strong></td><td>94715272921</td></tr>                 <tr><td><strong>Site:</strong></td><td>Ambanpola</td></tr>                 <tr><td><strong>District:</strong></td><td>KU</td></tr>                 <tr><td><strong>Region:</strong></td><td>KU,PT</td></tr>                 <tr><td><strong>Cell Code:</strong></td><td>KUAMB1A</td></tr>                 <tr><td><strong>LAC:</strong></td><td>63940</td></tr>                 <tr><td><strong>SAC:</strong></td><td>19081</td></tr>                 <tr><td><strong>Coordinates:</strong></td><td>7.912474, 80.240975</td></tr>             </table>         </div>         </div>`)[0];
+                popup_c68828ff815e5e36e638039084273d05.setContent(html_226e3ef61e7ded4ec5fda0caa6e3d6b7);
             
         
 
-        marker_d701101663e957716cf5679c919afcec.bindPopup(popup_13e94452f8545077725ce0a34bad78dd)
+        marker_b8bb018ded4a90d6444fac202bf4e21e.bindPopup(popup_c68828ff815e5e36e638039084273d05)
         ;
 
         
     
     
-            marker_d701101663e957716cf5679c919afcec.bindTooltip(
+            marker_b8bb018ded4a90d6444fac202bf4e21e.bindTooltip(
                 `<div>
-                     👤 User: 94706278414 | GM
+                     👤 User: 94715272921 | KU
                  </div>`,
                 {"sticky": true}
             );
