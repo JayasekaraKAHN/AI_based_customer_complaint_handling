@@ -1,6 +1,127 @@
 from transformers import pipeline
 import numpy as np
 
+def format_rsrp_summary_for_overview(rsrp_data_list, title="RSRP Signal Quality"):
+    """Format RSRP data to display summary row for <=2 sites, individual rows for >2 sites"""
+    if not rsrp_data_list:
+        return {
+            'title': title,
+            'display_type': 'summary',
+            'summary_row': {
+                'Site_Name': 'No Data Available',
+                'Site_ID': 'N/A',
+                'Signal Quality': 'No Signal Data',
+                'Signal_Quality_Percentage': '0%',
+                'Good_Signal_Avg': '0.0%'
+            },
+            'individual_rows': [],
+            'total_sites': 0,
+            'good_count': 0,
+            'poor_count': 0
+        }
+    
+    # Count good and poor signals
+    good_count = 0
+    poor_count = 0
+    all_site_names = []
+    all_site_ids = []
+    individual_rows = []
+    total_good_signal_avg = 0.0
+    
+    for rsrp_entry in rsrp_data_list:
+        signal_quality = rsrp_entry.get('Signal Quality', 'Unknown')
+        site_name = rsrp_entry.get('Site_Name', 'Unknown Site')
+        site_id = rsrp_entry.get('Site_ID', 'Unknown')
+        good_signal_avg = rsrp_entry.get('Good Signal Avg (Range 1+2) %', 0.0)
+        
+        if signal_quality == "Good":
+            good_count += 1
+        else:
+            poor_count += 1
+            
+        if site_name not in all_site_names:
+            all_site_names.append(site_name)
+        if site_id not in all_site_ids:
+            all_site_ids.append(site_id)
+        
+        # Accumulate good signal average
+        total_good_signal_avg += float(good_signal_avg) if good_signal_avg else 0.0
+        
+        # Create individual row for each entry
+        individual_rows.append({
+            'Site_Name': site_name,
+            'Site_ID': site_id,
+            'Signal Quality': signal_quality,
+            'Signal_Quality_Percentage': f"{(1/len(rsrp_data_list) * 100):.1f}%",
+            'Good_Signal_Avg': f"{float(good_signal_avg) if good_signal_avg else 0.0:.1f}%"
+        })
+    
+    total_sites = len(rsrp_data_list)
+    unique_sites = len(all_site_names)
+    
+    # Calculate overall good signal average
+    overall_good_signal_avg = total_good_signal_avg / total_sites if total_sites > 0 else 0.0
+    
+    # Determine display type: if more than 2 unique sites, show individual rows
+    if unique_sites > 2:
+        return {
+            'title': title,
+            'display_type': 'individual',
+            'summary_row': None,
+            'individual_rows': individual_rows,
+            'total_sites': total_sites,
+            'unique_sites': unique_sites,
+            'good_count': good_count,
+            'poor_count': poor_count,
+            'overall_good_signal_avg': f"{overall_good_signal_avg:.1f}%"
+        }
+    
+    # For 2 or fewer sites, show summary
+    if len(all_site_names) == 1:
+        site_name_summary = all_site_names[0]
+    else:
+        site_name_summary = f"{len(all_site_names)} Sites"
+    
+    if len(all_site_ids) == 1:
+        site_id_summary = all_site_ids[0]
+    else:
+        site_id_summary = f"{len(all_site_ids)} Site IDs"
+    
+    # Determine overall signal quality and percentage
+    if good_count > poor_count:
+        overall_quality = "Mostly Good"
+        quality_percentage = f"{(good_count/total_sites * 100):.1f}%"
+    elif poor_count > good_count:
+        overall_quality = "Mostly Poor"
+        quality_percentage = f"{(poor_count/total_sites * 100):.1f}%"
+    elif good_count == poor_count and good_count > 0:
+        overall_quality = "Mixed Quality"
+        quality_percentage = "50%"
+    else:
+        overall_quality = "Unknown"
+        quality_percentage = "0%"
+    
+    # Create single summary row
+    summary_row = {
+        'Site_Name': site_name_summary,
+        'Site_ID': site_id_summary,
+        'Signal Quality': overall_quality,
+        'Signal_Quality_Percentage': quality_percentage,
+        'Good_Signal_Avg': f"{overall_good_signal_avg:.1f}%"
+    }
+    
+    return {
+        'title': title,
+        'display_type': 'summary',
+        'summary_row': summary_row,
+        'individual_rows': individual_rows,
+        'total_sites': total_sites,
+        'unique_sites': unique_sites,
+        'good_count': good_count,
+        'poor_count': poor_count,
+        'overall_good_signal_avg': f"{overall_good_signal_avg:.1f}%"
+    }
+
 # --- Rule-Based Pattern Analysis ---
 def rule_based_pattern_analysis(user_metrics):
     monthly_usage = user_metrics.get('Monthly Usage', {})
@@ -130,6 +251,26 @@ def generate_overall_msisdn_summary(user_metrics, summarizer=None):
         sms = (outgoing_sms[i] if i < len(outgoing_sms) else 0) + (incoming_sms[i] if i < len(incoming_sms) else 0)
         voice_sms_lines.append(f"- {m}: {voice} mins voice, {sms} SMS")
     voice_sms_str = "\n".join(voice_sms_lines) if voice_sms_lines else "No voice/SMS data."
+
+    # Get RSRP data for signal quality analysis
+    rsrp_data = user_metrics.get('RSRP Data', [])
+    common_locations = user_metrics.get('Common Cell Locations', [])
+
+    # Format RSRP data for overview display
+    recent_rsrp_summary = format_rsrp_summary_for_overview(rsrp_data, "Recent Location RSRP")
+    
+    # Process common locations RSRP data
+    all_common_rsrp = []
+    if common_locations:
+        for loc in common_locations:
+            loc_rsrp_data = loc.get('RSRP_DATA', [])
+            all_common_rsrp.extend(loc_rsrp_data)
+    
+    common_rsrp_summary = format_rsrp_summary_for_overview(all_common_rsrp, "Common Locations RSRP")
+    
+    # Store formatted RSRP summaries in user_metrics for template access
+    user_metrics['formatted_recent_rsrp'] = recent_rsrp_summary
+    user_metrics['formatted_common_rsrp'] = common_rsrp_summary
 
     # --- Detailed MSISDN Data Section ---
     details_section = (
