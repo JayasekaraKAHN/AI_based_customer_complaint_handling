@@ -85,7 +85,7 @@ def create_location_map(result_data):
         </p>
         </div>
         """
-        map_obj.get_root().html.add_child(folium.Element(legend_html))
+        map_obj.get_root().add_child(folium.Element(legend_html))
         return map_obj
     except Exception as e:
         print(f"Error creating map: {e}")
