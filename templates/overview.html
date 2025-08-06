@@ -215,6 +215,163 @@
         </div>
         {% endif %}
 
+        <!-- RSRP Signal Quality Data -->
+        {% if result.get('formatted_recent_rsrp') or result.get('formatted_common_rsrp') %}
+        <div class="mb-4">
+          <h5 class="mb-3">
+            <i class="bi bi-reception-4 me-2 text-info"></i>
+            RSRP Signal Quality
+          </h5>
+          
+          {% if result.get('formatted_recent_rsrp') %}
+          <!-- Current Location RSRP -->
+          <div class="card mb-3">
+            <div class="card-header">
+              <h6 class="mb-0">Current Location</h6>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-striped table-sm">
+                  <thead>
+                    <tr>
+                      <th>Site Name</th>
+                      <th>Site ID</th>
+                      <th>Signal Quality</th>
+                      <th>Signal Avg</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% if result['formatted_recent_rsrp']['display_type'] == 'summary' and result['formatted_recent_rsrp']['summary_row'] %}
+                      <!-- Summary Row for ≤2 sites -->
+                      <tr>
+                        <td>{{ result['formatted_recent_rsrp']['summary_row']['Site_Name'] }}</td>
+                        <td>{{ result['formatted_recent_rsrp']['summary_row']['Site_ID'] }}</td>
+                        <td>
+                          {% set quality = result['formatted_recent_rsrp']['summary_row']['Signal Quality'] %}
+                          <span class="badge bg-{% if 'Good' in quality %}success{% elif 'Poor' in quality %}danger{% else %}secondary{% endif %}">
+                            {{ quality }}
+                          </span>
+                        </td>
+                        <td>
+                          <span class="badge bg-success">
+                            {{ result['formatted_recent_rsrp']['summary_row']['Good_Signal_Avg'] }}
+                          </span>
+                        </td>
+                      </tr>
+                    {% elif result['formatted_recent_rsrp']['display_type'] == 'individual' and result['formatted_recent_rsrp']['individual_rows'] %}
+                      <!-- Individual Rows for >2 sites -->
+                      {% for row in result['formatted_recent_rsrp']['individual_rows'] %}
+                      <tr>
+                        <td>{{ row['Site_Name'] }}</td>
+                        <td>{{ row['Site_ID'] }}</td>
+                        <td>
+                          <span class="badge bg-{% if row['Signal Quality'] == 'Good' %}success{% else %}danger{% endif %}">
+                            {{ row['Signal Quality'] }}
+                          </span>
+                        </td>
+                        <td>
+                          <span class="badge bg-success">
+                            {{ row['Good_Signal_Avg'] }}
+                          </span>
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    {% endif %}
+                  </tbody>
+                </table>
+              </div>
+              <small class="text-muted">
+                <i class="bi bi-info-circle me-1"></i>
+                {{ result['formatted_recent_rsrp']['total_sites'] }} total sites: 
+                {{ result['formatted_recent_rsrp']['good_count'] }} good, 
+                {{ result['formatted_recent_rsrp']['poor_count'] }} poor signal quality
+                {% if result['formatted_recent_rsrp'].get('unique_sites') %}
+                  ({{ result['formatted_recent_rsrp']['unique_sites'] }} unique sites)
+                {% endif %}
+                {% if result['formatted_recent_rsrp'].get('overall_good_signal_avg') %}
+                  - Overall Good Signal Avg: {{ result['formatted_recent_rsrp']['overall_good_signal_avg'] }}
+                {% endif %}
+              </small>
+            </div>
+          </div>
+          {% endif %}
+          
+          {% if result.get('formatted_common_rsrp') %}
+          <!-- Common Locations RSRP -->
+          <div class="card">
+            <div class="card-header">
+              <h6 class="mb-0">Common Locations</h6>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-striped table-sm">
+                  <thead>
+                    <tr>
+                      <th>Site Name</th>
+                      <th>Site ID</th>
+                      <th>Signal Quality</th>
+                      <th>Quality %</th>
+                      <th>Good Signal Avg</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% if result['formatted_common_rsrp']['display_type'] == 'summary' and result['formatted_common_rsrp']['summary_row'] %}
+                      <!-- Summary Row for ≤2 sites -->
+                      <tr>
+                        <td>{{ result['formatted_common_rsrp']['summary_row']['Site_Name'] }}</td>
+                        <td>{{ result['formatted_common_rsrp']['summary_row']['Site_ID'] }}</td>
+                        <td>
+                          {% set quality = result['formatted_common_rsrp']['summary_row']['Signal Quality'] %}
+                          <span class="badge bg-{% if 'Good' in quality %}success{% elif 'Poor' in quality %}danger{% else %}secondary{% endif %}">
+                            {{ quality }}
+                          </span>
+                        </td>
+                        <td>
+                          <span class="badge bg-success">
+                            {{ result['formatted_common_rsrp']['summary_row']['Good_Signal_Avg'] }}
+                          </span>
+                        </td>
+                      </tr>
+                    {% elif result['formatted_common_rsrp']['display_type'] == 'individual' and result['formatted_common_rsrp']['individual_rows'] %}
+                      <!-- Individual Rows for >2 sites -->
+                      {% for row in result['formatted_common_rsrp']['individual_rows'] %}
+                      <tr>
+                        <td>{{ row['Site_Name'] }}</td>
+                        <td>{{ row['Site_ID'] }}</td>
+                        <td>
+                          <span class="badge bg-{% if row['Signal Quality'] == 'Good' %}success{% else %}danger{% endif %}">
+                            {{ row['Signal Quality'] }}
+                          </span>
+                        </td>
+                        <td>
+                          <span class="badge bg-success">
+                            {{ row['Good_Signal_Avg'] }}
+                          </span>
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    {% endif %}
+                  </tbody>
+                </table>
+              </div>
+              <small class="text-muted">
+                <i class="bi bi-info-circle me-1"></i>
+                {{ result['formatted_common_rsrp']['total_sites'] }} total sites: 
+                {{ result['formatted_common_rsrp']['good_count'] }} good, 
+                {{ result['formatted_common_rsrp']['poor_count'] }} poor signal quality
+                {% if result['formatted_common_rsrp'].get('unique_sites') %}
+                  ({{ result['formatted_common_rsrp']['unique_sites'] }} unique sites)
+                {% endif %}
+                {% if result['formatted_common_rsrp'].get('overall_good_signal_avg') %}
+                  - Overall Good Signal Avg: {{ result['formatted_common_rsrp']['overall_good_signal_avg'] }}
+                {% endif %}
+              </small>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+
         <!-- Action Buttons -->
         <div class="row mt-4">
           <div class="col-md-6 mb-2">
