@@ -7,12 +7,48 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet" />
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Removed Plotly.js - now using Chart.js for lightweight visualization -->
+  <!-- <script src="https://cdn.plot.ly/plotly-latest.min.js"></script> -->
   <style>
     .logout-btn {
       position: absolute;
       top: 20px;
       right: 20px;
+    }
+
+    /* Chart Container Styling for proper aspect ratio and responsive behavior */
+    .chart-container {
+      position: relative;
+      margin: 10px 0;
+      min-height: 250px;
+      max-height: 400px;
+    }
+    
+    .chart-container canvas {
+      max-height: 100% !important;
+      width: 100% !important;
+    }
+    
+    /* Card styling for charts */
+    .card {
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+    }
+    
+    .card-title {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 15px;
+    }
+    
+    /* Responsive chart sizing */
+    @media (max-width: 768px) {
+      .chart-container {
+        min-height: 200px;
+        max-height: 300px;
+      }
     }
   </style>
 </head>
@@ -57,67 +93,87 @@
             Monthly Usage Summary
           </h5>
           
-          <!-- Usage Statistics Cards -->
+
+
+          <!-- Monthly Averages Section -->
           <div class="row mb-4">
-            <div class="col-md-3 mb-3">
-              <div class="card bg-primary text-white">
-                <div class="card-body text-center">
-                  <i class="bi bi-download fs-2 mb-2"></i>
-                  <h6 class="card-title">Total Data Usage</h6>
-                  <p class="card-text fs-5">
-                    {% if result["Monthly Usage"] and result["Monthly Usage"]["Total"] %}
-                      {{ "%.2f GB"|format((result["Monthly Usage"]["Total"]|sum / 1024) if result["Monthly Usage"]["Total"] else 0) }}
-                    {% else %}
-                      0 GB
-                    {% endif %}
-                  </p>
+            <div class="col-12">
+              <div class="card">
+                <div class="card-header">
+                  <h6 class="mb-0">
+                    <i class="bi bi-bar-chart me-2"></i>
+                    Monthly Averages
+                  </h6>
                 </div>
-              </div>
-            </div>
-            <div class="col-md-3 mb-3">
-              <div class="card bg-success text-white">
-                <div class="card-body text-center">
-                  <i class="bi bi-telephone fs-2 mb-2"></i>
-                  <h6 class="card-title">Voice Usage</h6>
-                  <p class="card-text fs-5">
-                    {% if result["Monthly Usage"] and result["Monthly Usage"]["incoming_voice"] and result["Monthly Usage"]["outgoing_voice"] %}
-                      {% set total_voice = result["Monthly Usage"]["incoming_voice"]|sum + result["Monthly Usage"]["outgoing_voice"]|sum %}
-                      {{ "%d min"|format(total_voice|int) }}
-                    {% else %}
-                      0 min
-                    {% endif %}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-3 mb-3">
-              <div class="card bg-info text-white">
-                <div class="card-body text-center">
-                  <i class="bi bi-chat-dots fs-2 mb-2"></i>
-                  <h6 class="card-title">SMS Usage</h6>
-                  <p class="card-text fs-5">
-                    {% if result["Monthly Usage"] and result["Monthly Usage"]["incoming_sms"] and result["Monthly Usage"]["outgoing_sms"] %}
-                      {% set total_sms = result["Monthly Usage"]["incoming_sms"]|sum + result["Monthly Usage"]["outgoing_sms"]|sum %}
-                      {{ "%d messages"|format(total_sms|int) }}
-                    {% else %}
-                      0 messages
-                    {% endif %}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-3 mb-3">
-              <div class="card bg-warning text-white">
-                <div class="card-body text-center">
-                  <i class="bi bi-calendar-month fs-2 mb-2"></i>
-                  <h6 class="card-title">Active Months</h6>
-                  <p class="card-text fs-5">
-                    {% if result["Monthly Usage"] and result["Monthly Usage"]["months"] %}
-                      {{ result["Monthly Usage"]["months"]|length }} months
-                    {% else %}
-                      0 months
-                    {% endif %}
-                  </p>
+                <div class="card-body">
+                  <div class="row">
+                    <div class="col-md-3 mb-3">
+                      <div class="text-center">
+                        <div class="bg-primary text-white rounded p-3">
+                          <i class="bi bi-download fs-4 mb-2"></i>
+                          <h6 class="mb-1">Avg Data/Month</h6>
+                          <p class="mb-0 fs-6">
+                            {% if result["Monthly Usage"] and result["Monthly Usage"]["Total"] and result["Monthly Usage"]["months"] %}
+                              {% set months_count = result["Monthly Usage"]["months"]|length %}
+                              {% set total_data = result["Monthly Usage"]["Total"]|sum %}
+                              {{ "%.2f GB"|format((total_data / months_count / 1024) if months_count > 0 else 0) }}
+                            {% else %}
+                              0 GB
+                            {% endif %}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                      <div class="text-center">
+                        <div class="bg-success text-white rounded p-3">
+                          <i class="bi bi-telephone fs-4 mb-2"></i>
+                          <h6 class="mb-1">Avg Voice/Month</h6>
+                          <p class="mb-0 fs-6">
+                            {% if result["Monthly Usage"] and result["Monthly Usage"]["incoming_voice"] and result["Monthly Usage"]["outgoing_voice"] and result["Monthly Usage"]["months"] %}
+                              {% set months_count = result["Monthly Usage"]["months"]|length %}
+                              {% set total_voice = result["Monthly Usage"]["incoming_voice"]|sum + result["Monthly Usage"]["outgoing_voice"]|sum %}
+                              {{ "%d min"|format((total_voice / months_count)|int if months_count > 0 else 0) }}
+                            {% else %}
+                              0 min
+                            {% endif %}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                      <div class="text-center">
+                        <div class="bg-info text-white rounded p-3">
+                          <i class="bi bi-chat-dots fs-4 mb-2"></i>
+                          <h6 class="mb-1">Avg SMS/Month</h6>
+                          <p class="mb-0 fs-6">
+                            {% if result["Monthly Usage"] and result["Monthly Usage"]["incoming_sms"] and result["Monthly Usage"]["outgoing_sms"] and result["Monthly Usage"]["months"] %}
+                              {% set months_count = result["Monthly Usage"]["months"]|length %}
+                              {% set total_sms = result["Monthly Usage"]["incoming_sms"]|sum + result["Monthly Usage"]["outgoing_sms"]|sum %}
+                              {{ "%d msgs"|format((total_sms / months_count)|int if months_count > 0 else 0) }}
+                            {% else %}
+                              0 msgs
+                            {% endif %}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                      <div class="text-center">
+                        <div class="bg-warning text-white rounded p-3">
+                          <i class="bi bi-calendar-month fs-4 mb-2"></i>
+                          <h6 class="mb-1">Active Months</h6>
+                          <p class="mb-0 fs-6">
+                            {% if result["Monthly Usage"] and result["Monthly Usage"]["months"] %}
+                              {{ result["Monthly Usage"]["months"]|length }} months
+                            {% else %}
+                              0 months
+                            {% endif %}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -184,31 +240,43 @@
           
           <!-- Usage Charts -->
           <div class="row">
-            <!-- Line Chart -->
+            <!-- Monthly Network Usage Chart (Line Chart) -->
             <div class="col-md-6 mb-4">
               <div class="card border p-3">
-                <div id="monthlyVolumeChart" style="width: 100%; height: 400px"></div>
+                <h6 class="card-title">Monthly Data Usage by Network</h6>
+                <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+                  <canvas id="monthlyVolumeChart"></canvas>
+                </div>
               </div>
             </div>
 
-            <!-- Bar Chart -->
+            <!-- Total Monthly Usage Chart (Bar Chart) -->
             <div class="col-md-6 mb-4">
               <div class="card border p-3">
-                <div id="totalVolumeChart" style="width: 100%; height: 400px"></div>
+                <h6 class="card-title">Total Monthly Usage</h6>
+                <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+                  <canvas id="totalVolumeChart"></canvas>
+                </div>
               </div>
             </div>
-
-            <!-- Voice Usage Chart -->
+            
+            <!-- Voice Usage Chart (Line Chart) -->
             <div class="col-md-6 mb-4">
               <div class="card border p-3">
-                <div id="voiceUsageChart" style="width: 100%; height: 400px"></div>
+                <h6 class="card-title">Monthly Voice Usage</h6>
+                <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+                  <canvas id="voiceUsageChart"></canvas>
+                </div>
               </div>
             </div>
-
-            <!-- SMS Usage Chart -->
+            
+            <!-- SMS Usage Chart (Line Chart) -->
             <div class="col-md-6 mb-4">
               <div class="card border p-3">
-                <div id="smsUsageChart" style="width: 100%; height: 400px"></div>
+                <h6 class="card-title">Monthly SMS Usage</h6>
+                <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+                  <canvas id="smsUsageChart"></canvas>
+                </div>
               </div>
             </div>
           </div>
@@ -398,7 +466,7 @@
   <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
 
   {% if result and result["Monthly Usage"] %}
-  <script id="usage-data" type="application/json">{{ result["Monthly Usage"] | tojson | safe }}</script>
+  <script id="usage-data" type="application/json" data-msisdn="{{ result['MSISDN'] }}">{{ result["Monthly Usage"] | tojson | safe }}</script>
   {% endif %}
 
   <script>

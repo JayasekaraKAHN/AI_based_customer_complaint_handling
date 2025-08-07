@@ -1,12 +1,13 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify
 from device_subscriber_insights import get_device_subscriber_insights
 from datetime import timedelta
-from werkzeug.middleware.dispatcher import DispatcherMiddleware
+# Removed Dash imports - now using Chart.js for lightweight visualization
+# from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.serving import run_simple
 
-from usage_graphs import create_dash_app 
-from call_drop_rate_dash import create_call_drop_rate_dash_app
-from hlr_vlr_subs_dash import create_hlr_vlr_subs_dash_app
+# from usage_graphs import create_dash_app 
+# from call_drop_rate_dash import create_call_drop_rate_dash_app
+# from hlr_vlr_subs_dash import create_hlr_vlr_subs_dash_app
 from user_location_map import create_location_map
 from msisdn_data import get_msisdn_data
 from VLR_data import get_user_count
@@ -320,7 +321,7 @@ def cleanup_expired_caches():
             try:
                 os.remove(map_cache[key]['map_file'])
             except:
-                pass
+                pass  # Ignore file deletion errors
         del map_cache[key]
     
     # Clean up analytics cache
@@ -333,12 +334,11 @@ def cleanup_expired_caches():
     
     print(f"[CACHE] Cleaned up {len(expired_keys)} expired cache entries")
 
-# Create Dash app for call drop rate graph
-call_drop_rate_file = os.path.join(os.path.dirname(__file__), '..', 'data_files', 'Call_Drop_Rate_3G.xls')
-call_drop_rate_dash_app = create_call_drop_rate_dash_app(app, call_drop_rate_file)
-# Create Dash app for HLR/VLR subscribers graph
-hlr_vlr_subbase_file = os.path.join(os.path.dirname(__file__), '..', 'data_files', 'HLR_VLR_Subbase.xls')
-hlr_vlr_subbase_dash_app = create_hlr_vlr_subs_dash_app(app, hlr_vlr_subbase_file, url_base_pathname='/hlr-vlr-subbase-graph/')
+# Dash apps removed - now using Chart.js for lightweight visualization
+# call_drop_rate_file = os.path.join(os.path.dirname(__file__), '..', 'data_files', 'Call_Drop_Rate_3G.xls')
+# call_drop_rate_dash_app = create_call_drop_rate_dash_app(app, call_drop_rate_file)
+# hlr_vlr_subbase_file = os.path.join(os.path.dirname(__file__), '..', 'data_files', 'HLR_VLR_Subbase.xls')
+# hlr_vlr_subbase_dash_app = create_hlr_vlr_subs_dash_app(app, hlr_vlr_subbase_file, url_base_pathname='/hlr-vlr-subbase-graph/')
 
 @app.route('/')
 def home():
@@ -1059,7 +1059,227 @@ def ai_overall_summary():
         print(f"[AI] Error generating summary: {e}")
         return jsonify({'error': 'AI summary generation failed', 'details': str(e)}), 500
 
-# --- 3G Call Drop Rate Data API for JS Plotly Chart ---
+# --- Chart.js Data API Endpoints (replaces Plotly/Dash) ---
+@app.route('/api/usage-chart-data/<msisdn>')
+def usage_chart_data(msisdn):
+    """Return usage chart data as JSON for Chart.js"""
+    if not is_cache_valid(msisdn):
+        return jsonify({'error': 'No data cached for this MSISDN'}), 404
+    
+    result = latest_result
+    monthly_usage = result.get('Monthly Usage', {})
+    
+    if not monthly_usage:
+        return jsonify({'error': 'No usage data found'}), 404
+    
+    # Prepare data for Chart.js
+    labels = list(monthly_usage.keys())
+    data_values = []
+    
+    for month_data in monthly_usage.values():
+        if isinstance(month_data, dict) and 'Total Usage (MB)' in month_data:
+            # Convert MB to GB for better readability
+            usage_gb = round(month_data['Total Usage (MB)'] / 1024, 2)
+            data_values.append(usage_gb)
+        else:
+            data_values.append(0)
+    
+    return jsonify({
+        'type': 'bar',
+        'data': {
+            'labels': labels,
+            'datasets': [{
+                'label': 'Data Usage (GB)',
+                'data': data_values,
+                'backgroundColor': 'rgba(54, 162, 235, 0.6)',
+                'borderColor': 'rgba(54, 162, 235, 1)',
+                'borderWidth': 1
+            }]
+        },
+        'options': {
+            'responsive': True,
+            'maintainAspectRatio': True,
+            'aspectRatio': 2,
+            'plugins': {
+                'title': {
+                    'display': True,
+                    'text': f'Monthly Data Usage for {msisdn}',
+                    'font': {
+                        'size': 16
+                    }
+                },
+                'legend': {
+                    'display': True,
+                    'position': 'top'
+                }
+            },
+            'scales': {
+                'y': {
+                    'beginAtZero': True,
+                    'title': {
+                        'display': True,
+                        'text': 'Usage (GB)'
+                    }
+                },
+                'x': {
+                    'title': {
+                        'display': True,
+                        'text': 'Month'
+                    }
+                }
+            }
+        }
+    })
+
+@app.route('/api/rsrp-trend-data/<msisdn>')
+def rsrp_trend_data(msisdn):
+    """Return RSRP trend data for Chart.js"""
+    if not is_cache_valid(msisdn):
+        return jsonify({'error': 'No data cached for this MSISDN'}), 404
+    
+    result = latest_result
+    cellcode = result.get('Cellcode')
+    
+    if not cellcode or cellcode == "Not Found":
+        return jsonify({'error': 'No cell code found'}), 404
+    
+    # Get RSRP data
+    rsrp_data = fetch_rsrp_data_directly(cellcode, zte_rsrp_df, huawei_rsrp_df, ref_df)
+    
+    if not rsrp_data:
+        return jsonify({'error': 'No RSRP data found'}), 404
+    
+    # Prepare trend data (showing RSRP ranges)
+    labels = ['Range 1 (>-105dBm)', 'Range 2 (-105~-110dBm)', 'Range 3 (-110~-115dBm)', 'Range 4 (<-115dBm)']
+    data_values = []
+    colors = ['rgba(76, 175, 80, 0.6)', 'rgba(255, 193, 7, 0.6)', 'rgba(255, 152, 0, 0.6)', 'rgba(244, 67, 54, 0.6)']
+    
+    if rsrp_data:
+        first_row = rsrp_data[0]
+        data_values = [
+            float(first_row.get('RSRP Range 1 (>-105dBm) %', 0)),
+            float(first_row.get('RSRP Range 2 (-105~-110dBm) %', 0)),
+            float(first_row.get('RSRP Range 3 (-110~-115dBm) %', 0)),
+            float(first_row.get('RSRP < -115dBm %', 0))
+        ]
+    
+    return jsonify({
+        'type': 'doughnut',
+        'data': {
+            'labels': labels,
+            'datasets': [{
+                'label': 'RSRP Distribution (%)',
+                'data': data_values,
+                'backgroundColor': colors,
+                'borderColor': [color.replace('0.6', '1') for color in colors],
+                'borderWidth': 1
+            }]
+        },
+        'options': {
+            'responsive': True,
+            'maintainAspectRatio': True,
+            'aspectRatio': 1.5,
+            'plugins': {
+                'title': {
+                    'display': True,
+                    'text': f'RSRP Signal Quality Distribution for {cellcode}',
+                    'font': {
+                        'size': 16
+                    }
+                },
+                'legend': {
+                    'display': True,
+                    'position': 'bottom'
+                }
+            }
+        }
+    })
+
+@app.route('/api/lte-utilization-chart-data/<msisdn>')
+def lte_utilization_chart_data(msisdn):
+    """Return LTE utilization data for Chart.js"""
+    if not is_cache_valid(msisdn):
+        return jsonify({'error': 'No data cached for this MSISDN'}), 404
+    
+    result = latest_result
+    cellcode = result.get('Cellcode')
+    
+    if not cellcode or cellcode == "Not Found":
+        return jsonify({'error': 'No cell code found'}), 404
+    
+    # Get site ID from cellcode
+    site_id = str(cellcode)[:6]
+    
+    # Get LTE utilization data
+    lte_data = get_lte_utilization_by_site_id(site_id, lte_utilization_df)
+    
+    if not lte_data:
+        lte_data = get_lte_utilization_by_cell_code(cellcode, lte_utilization_df)
+    
+    if not lte_data:
+        return jsonify({'error': 'No LTE utilization data found'}), 404
+    
+    # Prepare data for line chart showing utilization over time/cells
+    labels = []
+    data_values = []
+    
+    for i, row in enumerate(lte_data[:10]):  # Limit to 10 data points for clarity
+        cell_id = row.get('Cell ID', f'Cell {i+1}')
+        utilization = float(row.get('DL User Throughput (Mbps)', 0))
+        
+        labels.append(cell_id)
+        data_values.append(utilization)
+    
+    return jsonify({
+        'type': 'line',
+        'data': {
+            'labels': labels,
+            'datasets': [{
+                'label': 'DL Throughput (Mbps)',
+                'data': data_values,
+                'borderColor': 'rgba(75, 192, 192, 1)',
+                'backgroundColor': 'rgba(75, 192, 192, 0.2)',
+                'borderWidth': 2,
+                'fill': True,
+                'tension': 0.1
+            }]
+        },
+        'options': {
+            'responsive': True,
+            'maintainAspectRatio': True,
+            'aspectRatio': 2,
+            'plugins': {
+                'title': {
+                    'display': True,
+                    'text': f'LTE Utilization for Site {site_id}',
+                    'font': {
+                        'size': 16
+                    }
+                },
+                'legend': {
+                    'display': True,
+                    'position': 'top'
+                }
+            },
+            'scales': {
+                'y': {
+                    'beginAtZero': True,
+                    'title': {
+                        'display': True,
+                        'text': 'Throughput (Mbps)'
+                    }
+                },
+                'x': {
+                    'title': {
+                        'display': True,
+                        'text': 'Cell ID'
+                    }
+                }
+            }
+        }
+    })
+
+# --- 3G Call Drop Rate Data API for JS Chart.js Chart ---
 @app.route('/call-drop-rate-3g-data')
 def call_drop_rate_3g_data():
     from datetime import datetime
@@ -1452,14 +1672,185 @@ def lte_utilization_table():
                              summary={},
                              total_count=0)
 
-dash_app = create_dash_app(app, latest_result)
+# --- Chart.js API Endpoints (Additional endpoints for chart data) ---
 
-# Add Dash app for call drop rate graph at /call-drop-rate-graph
-application = DispatcherMiddleware(app.wsgi_app, {
-    '/usage-graph': dash_app.server,
-    '/call-drop-rate-graph': call_drop_rate_dash_app.server,
-    '/hlr-vlr-subbase-graph': hlr_vlr_subbase_dash_app.server,
-})
+@app.route('/api/call-drop-rate-chart-data/<msisdn>')
+def call_drop_rate_chart_data(msisdn):
+    """Return 3G Call Drop Rate data as JSON for Chart.js"""
+    if not is_cache_valid(msisdn):
+        return jsonify({'error': 'No data cached for this MSISDN'}), 404
+    
+    try:
+        # Read the Call Drop Rate data file
+        file_path = os.path.join(data_files_dir, 'Call_Drop_Rate_3G.xls')
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'Call_Drop_Rate_3G.xls not found'}), 404
+
+        # Try to read sheet 1, fallback to sheet 0 if error
+        try:
+            df = pd.read_excel(file_path, sheet_name=1)
+        except Exception:
+            try:
+                df = pd.read_excel(file_path, sheet_name=0)
+            except Exception as e:
+                return jsonify({'error': f'Excel read error: {str(e)}'}), 500
+
+        df = df.rename(columns=lambda x: str(x).strip())
+        
+        # Get the first date column and first data column for chart
+        date_col = df.columns[0]
+        drop_col = '3G Call Drop Rate'
+        if drop_col not in df.columns:
+            # Try alternative column names
+            for col in df.columns:
+                if 'drop' in col.lower() and 'rate' in col.lower():
+                    drop_col = col
+                    break
+        
+        if drop_col not in df.columns:
+            return jsonify({'error': 'Call drop rate column not found'}), 404
+        
+        # Prepare data for Chart.js (limit to last 10 records)
+        df_limited = df.tail(10)
+        labels = df_limited[date_col].astype(str).tolist()
+        data_values = df_limited[drop_col].fillna(0).tolist()
+        
+        return jsonify({
+            'type': 'line',
+            'data': {
+                'labels': labels,
+                'datasets': [{
+                    'label': 'Call Drop Rate (%)',
+                    'data': data_values,
+                    'borderColor': 'rgba(255, 99, 132, 1)',
+                    'backgroundColor': 'rgba(255, 99, 132, 0.2)',
+                    'borderWidth': 2,
+                    'fill': False,
+                    'tension': 0.1
+                }]
+            },
+            'options': {
+                'responsive': True,
+                'maintainAspectRatio': True,
+                'aspectRatio': 2,
+                'plugins': {
+                    'title': {
+                        'display': True,
+                        'text': '3G Call Drop Rate Trend',
+                        'font': {
+                            'size': 16
+                        }
+                    },
+                    'legend': {
+                        'display': True,
+                        'position': 'top'
+                    }
+                },
+                'scales': {
+                    'y': {
+                        'beginAtZero': True,
+                        'title': {
+                            'display': True,
+                            'text': 'Drop Rate (%)'
+                        }
+                    },
+                    'x': {
+                        'title': {
+                            'display': True,
+                            'text': 'Date'
+                        }
+                    }
+                }
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error processing call drop rate data: {str(e)}'}), 500
+
+@app.route('/api/hlr-vlr-chart-data/<msisdn>')
+def hlr_vlr_chart_data(msisdn):
+    """Return HLR/VLR subscriber data as JSON for Chart.js"""
+    if not is_cache_valid(msisdn):
+        return jsonify({'error': 'No data cached for this MSISDN'}), 404
+    
+    try:
+        # Read the HLR/VLR data file
+        file_path = os.path.join(data_files_dir, 'HLR_VLR_Subbase.xls')
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'HLR_VLR_Subbase.xls not found'}), 404
+        
+        df = pd.read_excel(file_path, sheet_name='Daily HLR Subs')
+        df = df.rename(columns=lambda x: str(x).strip())
+        
+        # Get the date column (first column) and data columns
+        date_col = df.columns[0]
+        
+        # Prepare data for Chart.js (limit to last 10 records)
+        df_limited = df.tail(10)
+        labels = df_limited[date_col].astype(str).tolist()
+        
+        # Get data for each series (excluding the date column)
+        datasets = []
+        colors = ['rgba(54, 162, 235, 0.6)', 'rgba(255, 99, 132, 0.6)', 'rgba(255, 206, 86, 0.6)', 'rgba(75, 192, 192, 0.6)']
+        
+        for i, col in enumerate(df.columns[1:]):
+            if i < len(colors):  # Limit to available colors
+                data_values = df_limited[col].fillna(0).tolist()
+                datasets.append({
+                    'label': col,
+                    'data': data_values,
+                    'backgroundColor': colors[i],
+                    'borderColor': colors[i].replace('0.6', '1'),
+                    'borderWidth': 1
+                })
+        
+        return jsonify({
+            'type': 'bar',
+            'data': {
+                'labels': labels,
+                'datasets': datasets
+            },
+            'options': {
+                'responsive': True,
+                'plugins': {
+                    'title': {
+                        'display': True,
+                        'text': 'HLR/VLR Subscriber Base Trend'
+                    },
+                    'legend': {
+                        'display': True,
+                        'position': 'top'
+                    }
+                },
+                'scales': {
+                    'y': {
+                        'beginAtZero': True,
+                        'title': {
+                            'display': True,
+                            'text': 'Subscriber Count'
+                        }
+                    },
+                    'x': {
+                        'title': {
+                            'display': True,
+                            'text': 'Date'
+                        }
+                    }
+                }
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error processing HLR/VLR data: {str(e)}'}), 500
+
+# Dash apps removed - now using Chart.js for lightweight visualization
+# dash_app = create_dash_app(app, latest_result)
+# application = DispatcherMiddleware(app.wsgi_app, {
+#     '/usage-graph': dash_app.server,
+#     '/call-drop-rate-graph': call_drop_rate_dash_app.server,
+#     '/hlr-vlr-subbase-graph': hlr_vlr_subbase_dash_app.server,
+# })
 
 if __name__ == "__main__":
-    run_simple("127.0.0.1", 5000, application, use_debugger=True, use_reloader=True)
+    # Now run Flask app directly instead of through DispatcherMiddleware
+    app.run(host="127.0.0.1", port=5000, debug=True)
