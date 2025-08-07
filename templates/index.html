@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet" />
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     .tab-content {
       margin-top: 20px;
@@ -25,6 +25,40 @@
       border: 1px solid #ddd;
       border-radius: 8px;
       overflow: hidden;
+    }
+
+    /* Chart Container Styling for proper aspect ratio and responsive behavior */
+    .chart-container {
+      position: relative;
+      margin: 10px 0;
+      min-height: 250px;
+      max-height: 400px;
+    }
+    
+    .chart-container canvas {
+      max-height: 100% !important;
+      width: 100% !important;
+    }
+    
+    /* Card styling for charts */
+    .card {
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+    }
+    
+    .card-title {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 15px;
+    }
+    
+    /* Responsive chart sizing */
+    @media (max-width: 768px) {
+      .chart-container {
+        min-height: 200px;
+        max-height: 300px;
+      }
     }
 
 
@@ -628,29 +662,43 @@
 
       <div class="tab-pane fade" id="graphs" role="tabpanel" aria-labelledby="graphs-tab">
         <div class="row mt-3">
-          <!-- Line Chart -->
+          <!-- Monthly Volume Chart (Line Chart) -->
           <div class="col-md-6 mb-4">
             <div class="card border p-3">
-              <div id="monthlyVolumeChart" style="width: 100%; height: 400px"></div>
+              <h6 class="card-title">Monthly Data Usage by Network Type</h6>
+              <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+                <canvas id="monthlyVolumeChart"></canvas>
+              </div>
             </div>
           </div>
 
-          <!-- Bar Chart -->
+          <!-- Total Volume Chart (Bar Chart) -->
           <div class="col-md-6 mb-4">
             <div class="card border p-3">
-              <div id="totalVolumeChart" style="width: 100%; height: 400px"></div>
+              <h6 class="card-title">Total Monthly Data Usage</h6>
+              <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+                <canvas id="totalVolumeChart"></canvas>
+              </div>
             </div>
           </div>
+          
           <!-- Voice Usage Chart -->
           <div class="col-md-6 mb-4">
             <div class="card border p-3">
-              <div id="voiceUsageChart" style="width: 100%; height: 400px"></div>
+              <h6 class="card-title">Monthly Voice Usage (Incoming & Outgoing)</h6>
+              <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+                <canvas id="voiceUsageChart"></canvas>
+              </div>
             </div>
           </div>
-          <!--SMS Usage Chart-->
+          
+          <!-- SMS Usage Chart -->
           <div class="col-md-6 mb-4">
             <div class="card border p-3">
-              <div id="smsUsageChart" style="width: 100%; height: 400px"></div>
+              <h6 class="card-title">Monthly SMS Usage (Incoming & Outgoing)</h6>
+              <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+                <canvas id="smsUsageChart"></canvas>
+              </div>
             </div>
           </div>
         </div>
@@ -1218,7 +1266,7 @@
   <script src="{{ url_for('static', filename='js/rsrp-filters.js') }}"></script>
 
     {% if result and result["Monthly Usage"] %}
-    <script id="usage-data" type="application/json">{{ result["Monthly Usage"] | tojson | safe }}</script>
+    <script id="usage-data" type="application/json" data-msisdn="{{ result['MSISDN'] }}">{{ result["Monthly Usage"] | tojson | safe }}</script>
     {% endif %}
 
     <!-- Template Variables -->
