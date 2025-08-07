@@ -4,9 +4,11 @@ from datetime import timedelta
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.serving import run_simple
 
+
+
 from usage_graphs import create_dash_app 
 from call_drop_rate_dash import create_call_drop_rate_dash_app
-from hlr_vlr_subs_dash import create_hlr_vlr_subs_dash_app
+from hlr_vlr_subs_dash import hlr_vlr_bp
 from user_location_map import create_location_map
 from msisdn_data import get_msisdn_data
 from VLR_data import get_user_count
@@ -45,6 +47,10 @@ static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..',
 app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
 app.secret_key = "admin12345"
 app.permanent_session_lifetime = timedelta(minutes=10)
+
+# ✅ Register your HLR/VLR graph route here
+from hlr_vlr_subs_dash import hlr_vlr_bp
+app.register_blueprint(hlr_vlr_bp)
 
 #auto-detect usage files
 def auto_detect_usage_files(data_directory=None):
@@ -114,12 +120,8 @@ SIM_TYPE_MAPPING = {
 
 latest_result = {}
 
-# Create Dash app for call drop rate graph
-call_drop_rate_file = os.path.join(os.path.dirname(__file__), '..', 'data_files', 'Call_Drop_Rate_3G.xls')
-call_drop_rate_dash_app = create_call_drop_rate_dash_app(app, call_drop_rate_file)
-# Create Dash app for HLR/VLR subscribers graph
-hlr_vlr_subbase_file = os.path.join(os.path.dirname(__file__), '..', 'data_files', 'HLR_VLR_Subbase.xls')
-hlr_vlr_subbase_dash_app = create_hlr_vlr_subs_dash_app(app, hlr_vlr_subbase_file, url_base_pathname='/hlr-vlr-subbase-graph/')
+# HLR/VLR graph handled by Flask Blueprint + Chart.js now (no Dash needed)
+
 
 @app.route('/')
 def home():
@@ -620,8 +622,7 @@ dash_app = create_dash_app(app, latest_result)
 # Add Dash app for call drop rate graph at /call-drop-rate-graph
 application = DispatcherMiddleware(app.wsgi_app, {
     '/usage-graph': dash_app.server,
-    '/call-drop-rate-graph': call_drop_rate_dash_app.server,
-    '/hlr-vlr-subbase-graph': hlr_vlr_subbase_dash_app.server,
+    #'/call-drop-rate-graph': call_drop_rate_dash_app.server,#
 })
 
 if __name__ == "__main__":

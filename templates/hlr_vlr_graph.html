@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Subscriber Trends</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h2>All Subscriber Types Over Time</h2>
+    <canvas id="myChart" width="1200" height="400"></canvas>
+    <script>
+        const labels = {{ labels|safe }};
+        const prepaid = {{ prepaid|safe }};
+        const postpaid = {{ postpaid|safe }};
+        const vlr = {{ vlr|safe }};
+        const hss = {{ hss|safe }};
+
+        const data = {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Prepaid',
+                    data: prepaid,
+                    borderColor: 'blue',
+                    fill: false,
+                },
+                {
+                    label: 'Postpaid',
+                    data: postpaid,
+                    borderColor: 'green',
+                    fill: false,
+                },
+                {
+                    label: 'VLR',
+                    data: vlr,
+                    borderColor: 'orange',
+                    fill: false,
+                },
+                {
+                    label: 'HSS',
+                    data: hss,
+                    borderColor: 'red',
+                    fill: false,
+                }
+            ]
+        };
+
+        const config = {
+            type: 'line',
+            data: data,
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        ticks: {
+                            maxTicksLimit: 20
+                        }
+                    }
+                }
+            }
+        };
+
+        new Chart(document.getElementById('myChart'), config);
+    </script>
+</body>
+</html>
