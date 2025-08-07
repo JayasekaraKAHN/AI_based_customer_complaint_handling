@@ -41,11 +41,9 @@ import re
 import io
 import os
 import math
-import sys
 import folium
 import calendar
 import time
-import numpy as np
 
 def calculate_haversine_distance(lat1, lon1, lat2, lon2):
     """Calculate the great circle distance between two points on Earth using Haversine formula"""
@@ -111,31 +109,99 @@ USERTD = load_usage_data_with_month()
 ref_df = pd.read_csv(REFERENCE_FILE)
 tac_df = pd.read_csv(TAC_FILE, low_memory=False)
 
-# Load BART summarization pipeline (lazy loading for performance)
+# Load rule-based summarization (lightweight alternative to BART)
 summarizer = None
 
-#Lazy load BART summarization pipeline only when needed
 def get_summarizer():
+    """Initialize rule-based summarizer (lightweight alternative to transformers)"""
     global summarizer
     if summarizer is None:
-        print("[LOADING] Loading AI summarization model (this may take 30-60 seconds)...")
+        print("[LOADING] Initializing rule-based summarization system...")
         try:
-            # Import transformers only when needed to speed up initial loading
-            from transformers import pipeline
-            import torch
-            
-            # Check if GPU is available for faster inference
-            device = 0 if torch.cuda.is_available() else -1
-            summarizer = pipeline(
-                "summarization", 
-                model="facebook/bart-large-cnn",
-                device=device
-            )
-            print(f"[LOADED] AI model loaded successfully on {'GPU' if device == 0 else 'CPU'}")
+            # Initialize rule-based summarizer with telecom-specific keywords
+            summarizer = {
+                'type': 'rule_based',
+                'telecom_keywords': {
+                    'data': 3, 'usage': 3, 'signal': 2, 'network': 2, 'location': 2,
+                    'rsrp': 2, 'lte': 2, 'cell': 2, 'site': 1, '3g': 1, '4g': 1,
+                    'coverage': 2, 'quality': 2, 'performance': 2, 'utilization': 2,
+                    'tower': 1, 'connection': 1, 'strength': 1, 'mobile': 1
+                },
+                'loaded': True
+            }
+            print("[LOADED] Rule-based summarization system initialized successfully")
         except Exception as e:
             summarizer = False  # Mark as failed to avoid repeated attempts
-            print(f"[AI Summary] Error loading BART model: {e}")
+            print(f"[SUMMARIZER] Error initializing rule-based summarizer: {e}")
     return summarizer if summarizer is not False else None
+
+def generate_ai_summary(text, max_length=150):
+    """Generate summary using rule-based approach for telecom data"""
+    if not text or len(text.strip()) < 50:
+        return "Insufficient data for summary"
+    
+    # Split into sentences
+    sentences = text.split('. ')
+    if len(sentences) <= 3:
+        return text
+    
+    # Get telecom keywords from summarizer
+    summarizer_obj = get_summarizer()
+    if not summarizer_obj:
+        return text[:max_length] + "..."
+    
+    telecom_keywords = summarizer_obj.get('telecom_keywords', {})
+    
+    scored_sentences = []
+    
+    for i, sentence in enumerate(sentences):
+        if len(sentence.strip()) < 10:  # Skip very short sentences
+            continue
+            
+        score = 0
+        sentence_lower = sentence.lower()
+        
+        # Keyword scoring
+        for keyword, weight in telecom_keywords.items():
+            score += sentence_lower.count(keyword) * weight
+        
+        # Length bonus (prefer substantial sentences)
+        word_count = len(sentence.split())
+        if 8 <= word_count <= 25:  # Optimal length range
+            score += 2
+        elif word_count > 25:
+            score += 1
+        
+        # Position bonus (first and last sentences often important)
+        if i == 0 or i == len(sentences) - 1:
+            score += 1
+        
+        # Numbers/statistics bonus (important in telecom data)
+        if re.search(r'\d+(?:\.\d+)?(?:%|MB|GB|dBm|Hz)', sentence):
+            score += 2
+        
+        scored_sentences.append((score, i, sentence.strip()))
+    
+    if not scored_sentences:
+        return text[:max_length] + "..."
+    
+    # Select top 3 sentences
+    top_sentences = sorted(scored_sentences, key=lambda x: x[0], reverse=True)[:3]
+    
+    # Restore original order
+    top_sentences.sort(key=lambda x: x[1])
+    
+    summary = '. '.join([sentence[2] for sentence in top_sentences])
+    
+    # Ensure proper ending
+    if not summary.endswith('.'):
+        summary += '.'
+    
+    # Truncate if too long
+    if len(summary) > max_length:
+        summary = summary[:max_length-3] + "..."
+    
+    return summary
 
 usage_df = load_usage_data_with_month()
 
@@ -1033,7 +1099,7 @@ def call_drop_rate_3g_data():
         df = df[df[date_col + '_dt'].notnull()]
         df = df[df[date_col + '_dt'].dt.year >= 2014]
         df = df.sort_values(date_col + '_dt')
-        df[drop_col] = df[drop_col].replace({np.nan: None, np.inf: None, -np.inf: None})
+        df[drop_col] = df[drop_col].replace({pd.NA: None, float('inf'): None, float('-inf'): None})
         # After filtering/sorting, get the original date strings in the same order
         x = df[date_col].astype(str).tolist()
         y = df[drop_col].tolist()
@@ -1063,7 +1129,6 @@ def call_drop_rate_3g_table():
 @app.route('/hlr-vlr-subbase-data')
 def hlr_vlr_subbase_data():
     import pandas as pd
-    import numpy as np
     from flask import jsonify
     file_path = os.path.join(data_files_dir, 'HLR_VLR_Subbase.xls')
     try:
@@ -1071,7 +1136,7 @@ def hlr_vlr_subbase_data():
         df = df.rename(columns=lambda x: str(x).strip())
         x_col = df.columns[0]
         x = df[x_col].astype(str).tolist()
-        y_series = {col: df[col].replace({np.nan: None, np.inf: None, -np.inf: None}).tolist() for col in df.columns[1:]}
+        y_series = {col: df[col].replace({pd.NA: None, float('inf'): None, float('-inf'): None}).tolist() for col in df.columns[1:]}
         return jsonify({
             "x": x,
             "y_series": y_series,

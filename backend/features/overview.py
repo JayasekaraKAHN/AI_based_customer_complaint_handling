@@ -1,5 +1,73 @@
-from transformers import pipeline
-import numpy as np
+import re
+
+def generate_rule_based_summary(text, max_length=150):
+    """Generate summary using rule-based approach for telecom data"""
+    if not text or len(text.strip()) < 50:
+        return "Insufficient data for summary"
+    
+    # Split into sentences
+    sentences = text.split('. ')
+    if len(sentences) <= 3:
+        return text
+    
+    # Telecom-specific keywords with weights
+    telecom_keywords = {
+        'data': 3, 'usage': 3, 'signal': 2, 'network': 2, 'location': 2,
+        'rsrp': 2, 'lte': 2, 'cell': 2, 'site': 1, '3g': 1, '4g': 1,
+        'coverage': 2, 'quality': 2, 'performance': 2, 'utilization': 2,
+        'tower': 1, 'connection': 1, 'strength': 1, 'mobile': 1
+    }
+    
+    scored_sentences = []
+    
+    for i, sentence in enumerate(sentences):
+        if len(sentence.strip()) < 10:  # Skip very short sentences
+            continue
+            
+        score = 0
+        sentence_lower = sentence.lower()
+        
+        # Keyword scoring
+        for keyword, weight in telecom_keywords.items():
+            score += sentence_lower.count(keyword) * weight
+        
+        # Length bonus (prefer substantial sentences)
+        word_count = len(sentence.split())
+        if 8 <= word_count <= 25:  # Optimal length range
+            score += 2
+        elif word_count > 25:
+            score += 1
+        
+        # Position bonus (first and last sentences often important)
+        if i == 0 or i == len(sentences) - 1:
+            score += 1
+        
+        # Numbers/statistics bonus (important in telecom data)
+        if re.search(r'\d+(?:\.\d+)?(?:%|MB|GB|dBm|Hz)', sentence):
+            score += 2
+        
+        scored_sentences.append((score, i, sentence.strip()))
+    
+    if not scored_sentences:
+        return text[:max_length] + "..."
+    
+    # Select top 3 sentences
+    top_sentences = sorted(scored_sentences, key=lambda x: x[0], reverse=True)[:3]
+    
+    # Restore original order
+    top_sentences.sort(key=lambda x: x[1])
+    
+    summary = '. '.join([sentence[2] for sentence in top_sentences])
+    
+    # Ensure proper ending
+    if not summary.endswith('.'):
+        summary += '.'
+    
+    # Truncate if too long
+    if len(summary) > max_length:
+        summary = summary[:max_length-3] + "..."
+    
+    return summary
 
 def format_rsrp_summary_for_overview(rsrp_data_list, title="RSRP Signal Quality"):
     """Format RSRP data to display summary row for <=2 sites, individual rows for >2 sites"""
@@ -139,7 +207,7 @@ def rule_based_pattern_analysis(user_metrics):
 
     # Detect high/low usage
     if total_usage:
-        avg_usage = np.mean(total_usage)
+        avg_usage = sum(total_usage) / len(total_usage)  # Replace np.mean with basic average
         max_usage = max(total_usage)
         min_usage = min(total_usage)
         if max_usage > avg_usage:
@@ -207,7 +275,7 @@ def personalized_recommendations(user_metrics):
 # --- LLM-Based Summarization ---
 def generate_overall_msisdn_summary(user_metrics, summarizer=None):
     if summarizer is None:
-        return "AI summarizer not available. Please check model installation."
+        return "Rule-based summarizer not available. Please check initialization."
 
     msisdn = user_metrics.get('MSISDN', 'Unknown')
     brand = user_metrics.get('Brand', 'Unknown')
@@ -312,22 +380,71 @@ def generate_overall_msisdn_summary(user_metrics, summarizer=None):
     # --- Personalized recommendations ---
     recs = personalized_recommendations(user_metrics)
 
-    # Compose a richer prompt for the LLM, explicitly requesting pattern analysis and suggestions
-    prompt = (
-        f"\n"
-        f"Patterns detected:\n" + ("\n".join(f"- {p}" for p in patterns) if patterns else "- None detected.") + "\n"
-        f"Suggestions:\n" + ("\n".join(f"- {s}" for s in suggestions) if suggestions else "- None.") + "\n"
-        f"Personalized Recommendations:\n" + ("\n".join(f"- {r}" for r in recs) if recs else "- None.")
+    # Create summary text for rule-based processing
+    summary_text = (
+        f"User {msisdn} telecom data analysis. "
+        f"Device: {brand} {model} using {technology} technology. "
+        f"Location: {district} district, {region} region at site {sitename}. "
     )
+    
+    # Add usage information
+    if total_usage:
+        avg_usage = sum(total_usage) / len(total_usage)
+        summary_text += f"Average monthly data usage: {avg_usage:.0f} MB. "
+        
+        if months and total_usage:
+            max_usage_idx = total_usage.index(max(total_usage))
+            min_usage_idx = total_usage.index(min(total_usage))
+            summary_text += f"Peak usage in {months[max_usage_idx]}: {total_usage[max_usage_idx]} MB. "
+            summary_text += f"Lowest usage in {months[min_usage_idx]}: {total_usage[min_usage_idx]} MB. "
+    
+    # Add voice and SMS data
+    if outgoing_voice and incoming_voice:
+        total_voice = sum(outgoing_voice) + sum(incoming_voice)
+        summary_text += f"Total voice usage: {total_voice} minutes. "
+    
+    if outgoing_sms and incoming_sms:
+        total_sms = sum(outgoing_sms) + sum(incoming_sms)
+        summary_text += f"Total SMS activity: {total_sms} messages. "
+    
+    # Add patterns and suggestions to the text
+    if patterns:
+        summary_text += "Patterns detected: " + "; ".join(patterns[:3]) + ". "
+    
+    if suggestions:
+        summary_text += "Suggested actions: " + "; ".join(suggestions[:3]) + ". "
 
     try:
         # Handle different types of summarizers
-        if summarizer == "basic":
+        if hasattr(summarizer, 'get') and summarizer.get('type') == 'rule_based':
+            # Use rule-based summarization
+            ai_summary = generate_rule_based_summary(summary_text, max_length=180)
+            
+            # Combine with patterns and recommendations
+            combined_summary = details_section + "\n" + ai_summary
+            
+            if patterns:
+                combined_summary += "\n\n🔍 Key Patterns Detected:\n" + "\n".join(f"• {p}" for p in patterns[:5])
+            
+            if suggestions:
+                combined_summary += "\n\n💡 Recommendations:\n" + "\n".join(f"• {s}" for s in suggestions[:3])
+            
+            if recs:
+                combined_summary += "\n\n🎯 Personalized Offers:\n" + "\n".join(f"• {r}" for r in recs[:2])
+            
+            return combined_summary
+            
+        elif summarizer == "basic":
             # Basic text summarization without AI model
             basic_summary = generate_basic_summary(user_metrics, patterns, suggestions, recs)
             return details_section + "\n" + basic_summary
         elif hasattr(summarizer, '__call__'):
-            # AI model summarization
+            # Legacy AI model summarization (fallback)
+            prompt = (
+                f"Patterns detected:\n" + ("\n".join(f"- {p}" for p in patterns) if patterns else "- None detected.") + "\n"
+                f"Suggestions:\n" + ("\n".join(f"- {s}" for s in suggestions) if suggestions else "- None.") + "\n"
+                f"Personalized Recommendations:\n" + ("\n".join(f"- {r}" for r in recs) if recs else "- None.")
+            )
             result = summarizer(prompt, max_length=180, min_length=40, do_sample=False)
             combined_summary = (
                 details_section + "\n"
@@ -385,75 +502,3 @@ def generate_basic_summary(user_metrics, patterns, suggestions, recs):
         summary_parts.append(f"🎯 Personalized Tips: {', '.join(recs[:2])}")
     
     return "\n".join(summary_parts)
-    
-    # Store formatted RSRP summaries in user_metrics for template access
-    user_metrics['formatted_recent_rsrp'] = recent_rsrp_summary
-    user_metrics['formatted_common_rsrp'] = common_rsrp_summary
-
-    # --- Detailed MSISDN Data Section ---
-    details_section = (
-        f"\n==============================\n"
-        f" MSISDN Detailed Data\n"
-        f"==============================\n"
-        f"Mobile Number      : {msisdn}\n"
-        f"IMSI              : {imsi}\n"
-        f"IMEI              : {imei}\n"
-        f"SIM Type          : {sim_type}\n"
-        f"Connection Type   : {connection_type}\n"
-        f"Device            : {brand} {model} ({marketing_name})\n"
-        f"OS                : {os_name}\n"
-        f"Year Released     : {year_released}\n"
-        f"Device Type       : {device_type}\n"
-        f"VoLTE             : {volte}\n"
-        f"Technology        : {technology}\n"
-        f"Primary HW Type   : {primary_hardware_type}\n"
-        f"TAC               : {tac}\n"
-        f"Location          : {district} district, {region} region\n"
-        f"Site Name         : {sitename}\n"
-        f"Cell Code         : {cellcode}\n"
-        f"Coordinates       : {lat}, {lon}\n"
-        f"\n------------------------------\n"
-        f" Monthly Usage Summary\n"
-        f"------------------------------\n"
-        f"Data Usage (MB) per Month:\n"
-        + ("\n".join([f"  • {m}: {t} MB" for m, t in zip(months, total_usage)]) if months and total_usage else "  • No usage data.")
-        + "\n\nVoice & SMS Activity per Month:\n"
-        + ("\n".join([f"  • {m}: {voice} mins voice, {sms} SMS" for m, voice, sms in zip(months, [(outgoing_voice[i] if i < len(outgoing_voice) else 0) + (incoming_voice[i] if i < len(incoming_voice) else 0) for i in range(len(months))], [(outgoing_sms[i] if i < len(outgoing_sms) else 0) + (incoming_sms[i] if i < len(incoming_sms) else 0) for i in range(len(months))])]) if months else "  • No voice/SMS data.")
-        + "\n==============================\n"
-    )
-
-    # --- Rule-based analysis ---
-    rule_results = rule_based_pattern_analysis(user_metrics)
-    patterns = rule_results['patterns']
-    suggestions = rule_results['suggestions']
-
-    # --- Personalized recommendations ---
-    recs = personalized_recommendations(user_metrics)
-
-    # Compose a richer prompt for the LLM, explicitly requesting pattern analysis and suggestions
-    prompt = (
-        f"\n"
-        f"Patterns detected:\n" + ("\n".join(f"- {p}" for p in patterns) if patterns else "- None detected.") + "\n"
-        f"Suggestions:\n" + ("\n".join(f"- {s}" for s in suggestions) if suggestions else "- None.") + "\n"
-        f"Personalized Recommendations:\n" + ("\n".join(f"- {r}" for r in recs) if recs else "- None.")
-    )
-
-    try:
-        result = summarizer(prompt, max_length=180, min_length=40, do_sample=False)
-        combined_summary = (
-            details_section + "\n"
-            + result[0]['summary_text']
-            + ("\n".join(
-                f"- {p}" for p in patterns
-                if p not in [
-                    "Significant spike in data usage detected in some months.",
-                    "Some months show very low data usage.",
-                    "Heavy voice call activity detected.",
-                    "Frequent SMS usage detected.",
-                    "Significant increase in voice usage detected in some months."
-                ]
-            ) if patterns else "- None detected.")
-        )
-        return combined_summary
-    except Exception as e:
-        return f"[AI Summary Error] {e}"
